@@ -1,0 +1,2 @@
+1 : cd D:\JavaProjects\AMOR\amor-backend
+2 : python -m uvicorn main:app --reload
