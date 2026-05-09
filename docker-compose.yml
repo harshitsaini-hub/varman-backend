@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  db:
+    image: ankane/pgvector:latest
+    container_name: amor-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: amor_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    container_name: amor-redis
+    ports:
+      - "6373:6379"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
