@@ -1,96 +1,77 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 import cv2
-import uuid
 import numpy as np
 import os
+import uuid
+import face_recognition
+from services.unknown_service import init_db, save_new_unknown, get_all_unknowns
 
 app = FastAPI()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FACE_DIR = os.path.join(BASE_DIR, "faces")
+KNOWN_FACES_DIR = os.path.join(BASE_DIR, "known_faces")
+UNKNOWN_FACES_DIR = os.path.join(BASE_DIR, "unknown_faces")
 
-os.makedirs(FACE_DIR, exist_ok=True)
+known_face_encodings = []
+known_face_names = []
 
-net = cv2.dnn.readNetFromCaffe(
-    os.path.join(BASE_DIR, "models", "deploy.prototxt"),
-    os.path.join(BASE_DIR, "models", "res10_300x300_ssd_iter_140000.caffemodel")
-)
+init_db()
 
-@app.post("/detect-face")
-async def detect_face(file: UploadFile = File(...)):
+for filename in os.listdir(KNOWN_FACES_DIR):
+    path = os.path.join(KNOWN_FACES_DIR, filename)
+    image = face_recognition.load_image_file(path)
+    encodings = face_recognition.face_encodings(image)
+    if len(encodings) > 0:
+        known_face_encodings.append(encodings[0])
+        known_face_names.append(os.path.splitext(filename)[0])
+
+print(f"Loaded {len(known_face_names)} known faces")
+
+@app.post("/recognize-face")
+def recognize_face(file: UploadFile = File(...)):
     try:
-
-        contents = await file.read()
-
+        contents = file.file.read()
         np_arr = np.frombuffer(contents, np.uint8)
-
         img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
         if img is None:
-            return JSONResponse(
-                status_code=400,
-                content={"error": "Invalid image"}
-            )
+            return JSONResponse(status_code=400, content={"error": "Invalid image"})
 
-        (h, w) = img.shape[:2]
+        rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        face_locations = face_recognition.face_locations(rgb_img)
+        face_encodings = face_recognition.face_encodings(rgb_img, face_locations)
 
-        blob = cv2.dnn.blobFromImage(
-            cv2.resize(img, (300, 300)),
-            1.0,
-            (300, 300),
-            (104.0, 177.0, 123.0)
-        )
+        results = []
 
-        net.setInput(blob)
+        for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
+            matches = face_recognition.compare_faces(known_face_encodings, face_encoding, tolerance=0.5)
+            name = "Unknown"
+            saved_filename = None
 
-        detections = net.forward()
+            face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
+            
+            if len(face_distances) > 0:
+                best_match_index = np.argmin(face_distances)
+                if matches[best_match_index]:
+                    name = known_face_names[best_match_index]
 
-        faces = []
+            if name == "Unknown":
+                face_crop = img[top:bottom, left:right]
+                saved_filename = f"U-{uuid.uuid4().hex[:8]}.jpg"
+                save_path = os.path.join(UNKNOWN_FACES_DIR, saved_filename)
+                cv2.imwrite(save_path, face_crop)
 
-        for i in range(detections.shape[2]):
+                unknown_id = saved_filename.replace('.jpg', '')
+                save_new_unknown(unknown_id, face_encoding)
 
-            confidence = float(detections[0, 0, i, 2])
+            results.append({
+                "name": name,
+                "saved_as": saved_filename,
+                "location": {"top": int(top), "right": int(right), "bottom": int(bottom), "left": int(left)}
+            })
 
-            if confidence > 0.5:
-
-                box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
-
-                (x1, y1, x2, y2) = box.astype("int")
-                
-                x1 = max(0, x1)
-                y1 = max(0, y1)
-                x2 = min(w, x2)
-                y2 = min(h, y2)
-                
-                face_crop = img[y1:y2, x1:x2]
-
-                filename = f"{uuid.uuid4()}.jpg"
-
-                filepath = os.path.join(FACE_DIR, filename)
-
-                cv2.imwrite(filepath, face_crop)
-
-                faces.append({
-                    "id": i,
-                    "confidence": round(confidence, 4),
-                    "saved_as": filename,
-                    "box": {
-                        "x1": int(x1),
-                        "y1": int(y1),
-                        "x2": int(x2),
-                        "y2": int(y2)
-                    }
-                })
-
-        return {
-            "face_count": len(faces),
-            "faces": faces
-        }
+        return {"face_count": len(results), "results": results}
 
     except Exception as e:
-
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(e)}
-        )
+        return JSONResponse(status_code=500, content={"error": str(e)})

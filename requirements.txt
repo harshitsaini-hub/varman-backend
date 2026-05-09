@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+python-multipart
+opencv-python
+numpy
+face-recognition
+psycopg[binary]
+pgvector
+imagehash
+imwatermark
+celery
+redis
+python-dotenv
