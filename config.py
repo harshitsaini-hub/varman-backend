@@ -1,17 +1,16 @@
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/amor_db")
+STORAGE_DIR = os.path.join(BASE_DIR, "storage")
+DB_DIR = os.path.join(BASE_DIR, "database")
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6373/0")
+for folder in [STORAGE_DIR, DB_DIR]:
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
+SQLITE_DB_PATH = os.path.join(DB_DIR, "amor_metadata.db")
+FAISS_INDEX_PATH = os.path.join(DB_DIR, "amor_vectors.index")
 
 NOISE_EPSILON = 0.02
 WATERMARK_BIT_LENGTH = 32
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-STORAGE_DIR = os.path.join(BASE_DIR, "storage")
-
-if not os.path.exists(STORAGE_DIR):
-    os.makedirs(STORAGE_DIR)

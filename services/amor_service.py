@@ -1,36 +1,42 @@
-import sqlite3
-import json
+import cv2
 import numpy as np
+import os
+from imwatermark import WatermarkEncoder
+from config import NOISE_EPSILON, STORAGE_DIR
 
-def setup_test_db():
-    
-    conn = sqlite3.connect('test_amor_memory.db')
-    cursor = conn.cursor()
+def apply_adversarial_noise(image_path):
+ 
+    img = cv2.imread(image_path)
 
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS unknown_faces (
-            unknown_id TEXT PRIMARY KEY,
-            encoding JSON
-        )
-    ''')
+    if img is None:
+        raise ValueError(f"Could not read image at {image_path}")
 
-    fake_encoding = np.random.rand(128)
-    encoding_json = json.dumps(fake_encoding.tolist())
-    
-    cursor.execute('''
-        INSERT OR REPLACE INTO unknown_faces (unknown_id, encoding) 
-        VALUES (?, ?)
-    ''', ("U-TEST-001", encoding_json))
-    
-    conn.commit()
+    img = img.astype(np.float32) / 255.0
 
-    cursor.execute('SELECT * FROM unknown_faces WHERE unknown_id = "U-TEST-001"')
-    row = cursor.fetchone()
-    
-    print(f"Success! Retrieved ID: {row[0]}")
-    print(f"Data stored safely as: {type(row[1])} (Array Length: {len(json.loads(row[1]))})")
-    
-    conn.close()
+    noise = np.random.uniform(-1, 1, img.shape).astype(np.float32)
 
-if __name__ == "__main__":
-    setup_test_db()
+    amored_img = img + NOISE_EPSILON * np.sign(noise)
+
+    amored_img = np.clip(amored_img, 0, 1)
+    
+    output_path = os.path.join(STORAGE_DIR, "noised_" + os.path.basename(image_path))
+    cv2.imwrite(output_path, (amored_img * 255).astype(np.uint8))
+    
+    return output_path
+
+def apply_watermark(image_path, watermark_text):
+
+    bgr = cv2.imread(image_path)
+    
+    if bgr is None:
+         raise ValueError(f"Could not read image at {image_path} for watermarking")
+        
+    encoder = WatermarkEncoder()
+    encoder.set_watermark('bytes', watermark_text.encode('utf-8'))
+
+    bgr_encoded = encoder.encode(bgr, 'dwtDct')
+    
+    final_path = os.path.join(STORAGE_DIR, "amored_" + os.path.basename(image_path))
+    cv2.imwrite(final_path, bgr_encoded)
+    
+    return final_path
