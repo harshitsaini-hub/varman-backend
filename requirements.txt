@@ -1,13 +1,10 @@
 fastapi
 uvicorn[standard]
 python-multipart
-opencv-python
+opencv-python-headless
 numpy
 face-recognition
-psycopg[binary]
-pgvector
+faiss-cpu
 imagehash
 imwatermark
-celery
-redis
 python-dotenv
