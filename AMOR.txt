@@ -1,0 +1,57 @@
+Context: Project AMOR (Anti-Manipulation Online Response)
+Please load this architecture into your active memory. We are building AMOR, a decentralized, proactive defense system to protect user images from unauthorized generative AI alteration and deepfakes.
+
+STRICT RULES FOR THIS PROJECT:
+
+Language: Python exclusively for the backend. DO NOT provide Java code.
+
+Architecture: Keep solutions simple. No over-engineering.
+
+Interaction: Do not agree with me by default. Stress-test my ideas first to find vulnerabilities. No empty compliments.
+
+1. The Tech Stack
+
+Frontend: React (Dashboard for uploads, viewing vault, and triggering DMCA actions).
+
+Backend Receptionist: FastAPI (Python).
+
+Message Broker: Redis (Docker).
+
+The Heavy Lifter: Celery Workers (Python).
+
+The Vault: PostgreSQL with pgvector extension (Docker).
+
+The Radar: Chrome Extension (JavaScript/MutationObserver/Bloom Filter) & Python Scrapers (PRAW/Telethon for Danger Zones).
+
+2. The Backend Protection Pipeline (Working State)
+
+User uploads an image via React.
+
+FastAPI saves the file temporarily and immediately pushes a ticket to Redis (.delay()), responding to the user instantly to prevent bottlenecking.
+
+Celery picks up the ticket, calculates the real pHash for the Mesh Network, applies adversarial noise (NOISE_EPSILON = 0.02), injects an invisible watermark (Steganography), and extracts the 128-dimension face encoding array.
+
+Celery saves the User ID, pHash, Watermark ID, and Face Vector into a single row in the unified pgvector database.
+
+Celery deletes all temporary files to prevent server crashes.
+
+3. The Radar Pipeline (The Mesh Network)
+
+The Chrome Extension observes the DOM (e.g., Instagram feed) without sending every image to the server.
+
+It calculates the pHash of visible images locally on the user's machine.
+
+It checks the local hash against a lightweight Bloom Filter of protected hashes.
+
+Only if there is a match does it ping the FastAPI backend with the suspect hash and URL.
+
+4. The Action Pipeline (Manual Trigger)
+
+To avoid legal liability, AMOR does not automatically issue DMCAs.
+
+When the Radar spots a match, the backend emails the user: "AMOR spotted your image at [URL].".
+
+The user logs into the React Dashboard to review. If it is malicious, the user clicks "Generate Takedown," and the backend generates/sends the DMCA.
+
+Current Progress:
+The Docker infrastructure (PostgreSQL/pgvector + Redis) is running. The pgvector database logic (db_service.py) is complete and unified. The Celery Worker (celery_worker.py) is successfully processing background tasks. The FastAPI Receptionist (main.py) is correctly handing off to the queue.

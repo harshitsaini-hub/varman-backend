@@ -1,49 +1,75 @@
-import sqlite3
-import faiss
+import psycopg2
 import numpy as np
-import os
-from config import SQLITE_DB_PATH, FAISS_INDEX_PATH
+from pgvector.psycopg2 import register_vector
+
+DB_PARAMS = {
+    "dbname": "amor_db",
+    "user": "postgres",
+    "password": "password",
+    "host": "localhost",
+    "port": "5432"
+}
+
+def get_db_connection():
+
+    conn = psycopg2.connect(
+        dbname=DB_PARAMS["dbname"],
+        user=DB_PARAMS["user"],
+        password=DB_PARAMS["password"],
+        host=DB_PARAMS["host"],
+        port=DB_PARAMS["port"]
+    )
+    
+    register_vector(conn)
+    return conn
 
 def init_db():
 
-    conn = sqlite3.connect(SQLITE_DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
+
+    cursor.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS protected_images (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             user_id TEXT NOT NULL,
             phash TEXT NOT NULL,
             watermark_id TEXT NOT NULL,
+            face_encoding vector(128),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
+        );
     """)
+
     conn.commit()
+    cursor.close()
     conn.close()
-
-    if not os.path.exists(FAISS_INDEX_PATH):
-
-        index = faiss.IndexFlatL2(128) 
-        index = faiss.IndexIDMap(index)
-        faiss.write_index(index, FAISS_INDEX_PATH)
+    print("[DATABASE] pgvector initialized cleanly. Unified table ready.")
 
 def save_image_metadata(user_id: str, phash: str, watermark_id: str, face_encoding: np.ndarray):
 
-    conn = sqlite3.connect(SQLITE_DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
+
+    encoding_list = face_encoding.tolist()
+
     cursor.execute("""
-        INSERT INTO protected_images (user_id, phash, watermark_id)
-        VALUES (?, ?, ?)
-    """, (user_id, phash, watermark_id))
-    sqlite_id = cursor.lastrowid
+        INSERT INTO protected_images (user_id, phash, watermark_id, face_encoding)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id;
+    """, (user_id, phash, watermark_id, encoding_list))
+
+    result = cursor.fetchone()
+    if result is None:
+        conn.rollback()
+        conn.close()
+        cursor.close()
+        raise ValueError(f"Failed to insert image metadata for user: {user_id}")
+
+    new_id = result[0]
+
     conn.commit()
+    cursor.close()
     conn.close()
 
-    index = faiss.read_index(FAISS_INDEX_PATH)
-    
-    vector = np.array([face_encoding]).astype('float32')
-    ids = np.array([sqlite_id]).astype('int64')
-    
-    index.add_with_ids(vector, ids)
-    faiss.write_index(index, FAISS_INDEX_PATH)
-    
-    print(f"Secured image data for user: {user_id} (ID: {sqlite_id})")
+    print(f"[DATABASE] Secured image data for user: {user_id} (Row ID: {new_id})")

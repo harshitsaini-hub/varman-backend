@@ -8,3 +8,7 @@ faiss-cpu
 imagehash
 invisible-watermark
 python-dotenv
+psycopg2-binary==2.9.9
+pgvector
+imagehash
+Pillow
