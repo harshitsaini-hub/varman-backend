@@ -2,8 +2,10 @@ from fastapi import FastAPI, File, UploadFile, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 import uuid
 import os
+from typing import List
 import face_recognition
 from config import STORAGE_DIR
+from fastapi import FastAPI, File, UploadFile, BackgroundTasks, Form
 from services.db_service import init_db, save_image_metadata
 from services.amor_service import apply_adversarial_noise, apply_watermark
 
@@ -45,25 +47,28 @@ def process_image_background(user_id: str, file_path: str):
     except Exception as e:
         print(f"[WORKER] FAILED to process {file_path}: {e}")
 
-@app.post("/protect")
-async def protect_images(user_id: str, background_tasks: BackgroundTasks, files: list[UploadFile] = File(...)):
-    saved_paths = []
-    
-    for file in files:
-
-        safe_filename = file.filename if file.filename else "fallback.jpg"
-        file_ext = safe_filename.split(".")[-1]
+    @app.post("/protect")
+    async def protect_images(
+        background_tasks: BackgroundTasks, 
+        user_id: str = Form(...),
+        files: List[UploadFile] = File(...)
+    ):
+        saved_paths = []
         
-        temp_name = f"{uuid.uuid4()}.{file_ext}"
-        temp_path = os.path.join(STORAGE_DIR, temp_name)
-        
-        with open(temp_path, "wb") as f:
-            f.write(await file.read())
-        saved_paths.append(temp_path)
-
-        background_tasks.add_task(process_image_background, user_id, temp_path)
-        
-    return {
-        "message": "Images accepted. The Armor is being applied in the background.",
-        "files_processing": len(saved_paths)
-    }
+        for file in files:
+            safe_filename = file.filename if file.filename else "fallback.jpg"
+            file_ext = safe_filename.split(".")[-1]
+            
+            temp_name = f"{uuid.uuid4()}.{file_ext}"
+            temp_path = os.path.join(STORAGE_DIR, temp_name)
+            
+            with open(temp_path, "wb") as f:
+                f.write(await file.read())
+            saved_paths.append(temp_path)
+            
+            background_tasks.add_task(process_image_background, user_id, temp_path)
+            
+        return {
+            "message": "Images accepted. The Armor is being applied in the background.",
+            "files_processing": len(saved_paths)
+        }
