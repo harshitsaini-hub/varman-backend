@@ -55,3 +55,78 @@ The user logs into the React Dashboard to review. If it is malicious, the user c
 
 Current Progress:
 The Docker infrastructure (PostgreSQL/pgvector + Redis) is running. The pgvector database logic (db_service.py) is complete and unified. The Celery Worker (celery_worker.py) is successfully processing background tasks. The FastAPI Receptionist (main.py) is correctly handing off to the queue.
+
+amor flow
+Upload: User logs in, uploads image.
+
+Queue: FastAPI accepts and hands it to Celery.
+
+Armor: Celery applies Adversarial Noise + Steganography.
+
+Memory: pgvector saves the Face Array + Watermark ID + pHash.
+
+Delivery: Original deleted. User downloads the Armored image.
+
+Radar: User posts it. AMOR Chrome Extensions silently watch the web.
+
+Strike: If an extension spots a deepfaked version, it instantly flags the server.
+
+Action: Server reads the watermark/face array, calculates the Confidence Score (Layer 4), and emails the user the pre-filled DMCA template (Layer 5).
+
+
+
+1. The AMOR Hivemind (The Mesh Network)
+
+You assumed the Chrome extension only looks for that specific user's photos. That is not how we are going to build it.
+
+
+
+The Architecture: When User A installs the AMOR extension, it downloads a lightweight, compressed list of everyone’s pHashes.
+
+The Execution: When User A is scrolling through Reddit on their laptop, the extension isn't just looking for User A's face. It is looking for any AMOR user's face.
+
+The Result: If User A stumbles upon a deepfake of User B, the extension silently flags your server, and User B gets the DMCA alert email instantly.
+
+The Power: If you have 10,000 users, you have 10,000 decentralized bots scraping the web for free, 24/7. You don't need to sweep the internet; your users' collective browsing habits are the sweep.
+
+
+
+2. The Danger Zone Bots (Free OSINT)
+
+The Architecture: Deepfakes don't usually go viral on mainstream Instagram first. They are born in the "Danger Zones"—specific 4chan boards, dedicated Reddit communities (like r/SFWdeepfakes), and public Telegram channels.
+
+The Execution: You write three simple Python scripts using free wrappers: PRAW (for Reddit), Telethon (for Telegram), and Discord.py.
+
+The Flow: These scripts live on your backend. They don't search the whole internet. They just sit in those 20 specific degenerate groups and listen. The second an image is uploaded to those groups, the bot grabs it, hashes it, and checks your pgvector database.
+
+The Cost: API access to Reddit, Discord, and Telegram bots is completely free.
+
+
+
+heres amor's architecture
+
+amor-backend/
+
+├── services/ # The "Workers" (DB logic, Noise logic, Recognition)
+
+├── utils/ # Helper tools (Image processing, hashing)
+
+├── storage/ # Temporary "Godown" for processing images
+
+├── config.py # The "Brain" (Environment variables and constants)
+
+├── celery_worker.py # The "Heavy Lifter" (Background processing)
+
+├── main.py # The "Receptionist" (FastAPI Endpoints)
+
+└── requirements.txt # The "Shopping List"
+
+updated the complaint phase proactiveScenario A: General Deepfake / Identity Theft
+
+Action: AMOR generates the standard DMCA Notice. It explicitly highlights the cryptographic proof (the watermark ID) proving ownership of the base image.
+
+Scenario B: Intimate / Explicit Deepfake
+
+Action: AMOR generates an NCII specific template emphasizing "Platform Safety Guidelines" and "Non-Consensual Imagery."
+
+The Execution: Instead of our backend trying to hack Meta's portal, the React dashboard displays the pre-filled text with a giant button: "Click here to open Meta's NCII Portal" so the user can just copy, paste, and submit legally as a human.
