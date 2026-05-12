@@ -32,6 +32,7 @@ app.conf.update(timezone="UTC")
 
 # ── Scheduled Task ─────────────────────────────────────────────────────────
 
+
 @app.task(name="celery_worker.rebuild_global_bloom")
 def rebuild_global_bloom():
     """

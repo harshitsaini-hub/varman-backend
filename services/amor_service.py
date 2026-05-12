@@ -50,7 +50,7 @@ def extract_watermark(image_array: np.ndarray, wm_byte_length: int) -> str:
     try:
         decoder = WatermarkDecoder("bytes", wm_byte_length * 8)
         result = decoder.decode(image_array, method=WATERMARK_METHOD)
-        return result.decode("utf-8", errors="ignore")  #type: ignore[arg-type]
+        return result.decode("utf-8", errors="ignore")  # type: ignore[arg-type]
     except Exception:
         return ""
 

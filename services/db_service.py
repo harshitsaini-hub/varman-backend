@@ -1,7 +1,7 @@
+from dataclasses import dataclass
+
 import numpy as np
 import psycopg2
-from dataclasses import dataclass
-from typing import Optional
 from pgvector.psycopg2 import register_vector
 
 from config import (
@@ -23,16 +23,18 @@ DB_PARAMS = {
 
 # ── PhashMatch — proper dataclass so Pylance can see its attributes ────────
 
+
 @dataclass
 class PhashMatch:
     user_id: str
     phash: str
     watermark_id: str
     confidence_score: float
-    armored_image_path: Optional[str] = None
+    armored_image_path: str | None = None
 
 
 # ── Connection ─────────────────────────────────────────────────────────────
+
 
 def get_db_connection():
     conn = psycopg2.connect(**DB_PARAMS)
@@ -67,6 +69,7 @@ def init_db():
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
+
 def _coerce_face_encoding(face_encoding: np.ndarray | list[float] | None):
     if face_encoding is None:
         return None
@@ -80,6 +83,7 @@ def _hamming_distance(left: str, right: str) -> int:
 
 
 # ── Write ──────────────────────────────────────────────────────────────────
+
 
 def save_image_metadata(
     user_id: str,
@@ -151,6 +155,7 @@ def save_protected_image(
 
 # ── Read ───────────────────────────────────────────────────────────────────
 
+
 def get_all_phashes(db) -> list[str]:
     cursor = db.cursor()
     try:
@@ -160,7 +165,7 @@ def get_all_phashes(db) -> list[str]:
         cursor.close()
 
 
-def lookup_phash_global(db, phash: str, threshold: int = 10) -> Optional[PhashMatch]:
+def lookup_phash_global(db, phash: str, threshold: int = 10) -> PhashMatch | None:
     cursor = db.cursor()
     try:
         cursor.execute("SELECT id, user_id, phash, watermark_id FROM protected_images;")
