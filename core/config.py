@@ -1,8 +1,6 @@
-"""Backward-compatible import shim for configuration values.
+import os
 
-New code should import from ``core.config``. This module remains so existing scripts
-and deployments that use ``from config import ...`` continue to work.
-"""
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 STORAGE_DIR = os.getenv("STORAGE_DIR", os.path.join(BASE_DIR, "storage"))
 DB_DIR = os.getenv("DB_DIR", os.path.join(BASE_DIR, "database"))
@@ -25,3 +23,9 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 NOISE_EPSILON = float(os.getenv("NOISE_EPSILON", "0.04"))
 WATERMARK_BIT_LENGTH = int(os.getenv("WATERMARK_BIT_LENGTH", "32"))
 ARMOR_VALIDATION_MIN_QUALITY = int(os.getenv("ARMOR_VALIDATION_MIN_QUALITY", "75"))
+
+TELEGRAM_DANGER_CHANNELS = tuple(
+    channel.strip()
+    for channel in os.getenv("TELEGRAM_DANGER_CHANNELS", "").split(",")
+    if channel.strip()
+)
