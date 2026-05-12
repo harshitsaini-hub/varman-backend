@@ -59,7 +59,7 @@ Scenario A (General Identity Theft): User clicks "Generate Takedown." AMOR gener
 
 Scenario B (Intimate / Explicit Deepfake): AMOR generates an NCII specific template emphasizing "Platform Safety Guidelines." The dashboard displays the pre-filled text with a direct link to the platform's NCII Portal so the user can submit it safely.
 
-6. Architecture Tree
+6. Architecture Tree (old)
 amor-backend/
 ├── services/ (DB logic, Noise logic, Recognition)
 ├── utils/ (Helper tools, validation)
@@ -68,3 +68,30 @@ amor-backend/
 ├── celery_worker.py (Background processing)
 ├── main.py (FastAPI Endpoints)
 └── requirements.txt (Dependencies)
+
+7. Architecture Tree (new)
+amor-backend/
+├── api/                         # FastAPI HTTP route modules
+│   └── routes/protect.py        # /protect upload endpoint
+├── core/                        # Core config/shared settings
+│   └── config.py                # Env-driven storage, DB, Redis, armor, Telegram config
+├── models/                      # DB schema/model declarations
+│   └── protected_image.py       # protected_images table DDL
+├── services/                    # AI/image pipeline, DB helpers, scrapers, business logic
+│   ├── amor_service.py
+│   ├── bloom_service.py
+│   ├── db_service.py
+│   ├── image_pipeline.py
+│   ├── noise_service.py
+│   ├── notification_service.py
+│   └── scrapers/
+├── utils/                       # Helper utilities
+├── tests/                       # Pytest checks
+├── main.py                      # FastAPI app setup
+├── celery_worker.py             # Celery task entrypoints
+├── config.py                    # Compatibility shim to core.config
+├── db.py                        # Compatibility DB session helper
+├── docker-compose.yml
+├── Dockerfile
+├── pyproject.toml
+└── requirements.txt
