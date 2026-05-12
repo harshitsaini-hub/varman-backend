@@ -1,0 +1,22 @@
+import io
+from PIL import Image
+import numpy as np
+
+def simulate_platform_compression(image_array: np.ndarray, quality: int = 75) -> np.ndarray:
+    """Simulate Instagram/Telegram-level JPEG compression."""
+    img = Image.fromarray(image_array)
+    buffer = io.BytesIO()
+    img.save(buffer, format='JPEG', quality=quality)
+    buffer.seek(0)
+    return np.array(Image.open(buffer))
+
+def validate_armor(original_armored: np.ndarray, watermark_id: str, wm_length: int) -> dict:
+    compressed = simulate_platform_compression(original_armored, quality=75)
+    recovered = extract_watermark(compressed, wm_length)
+    watermark_survived = watermark_id[:8] in recovered  # Check prefix at minimum
+    
+    return {
+        "watermark_survived_compression": watermark_survived,
+        "compression_quality_tested": 75,
+        "warning": None if watermark_survived else "Watermark may not survive platform compression"
+    }

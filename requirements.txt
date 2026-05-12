@@ -9,6 +9,14 @@ imagehash
 invisible-watermark
 python-dotenv
 psycopg2-binary==2.9.9
+invisible-watermark==0.2.0
 pgvector
 imagehash
 Pillow
+pybloom-live==3.0.0       # Bloom Filter
+scipy==1.13.0              # DCT frequency domain noise
+invisible-watermark==0.2.0 # dwtDct robust watermarking
+basc-py4chan==0.6.6        # 4chan public API
+praw==7.7.1                # Reddit
+telethon==1.36.0           # Telegram
+celery[redis]==5.3.6 

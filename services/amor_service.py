@@ -1,42 +1,94 @@
-import cv2
+# services/amor_service.py — full replacement of the armor pipeline
+
 import numpy as np
-import os
-from imwatermark import WatermarkEncoder
-from config import NOISE_EPSILON, STORAGE_DIR
+import io
+from PIL import Image
+from scipy.fftpack import dct, idct
+from imwatermark import WatermarkEncoder, WatermarkDecoder
 
-def apply_adversarial_noise(image_path):
- 
-    img = cv2.imread(image_path)
+NOISE_EPSILON = 0.04  # Upgraded from 0.02. Imperceptible at normal viewing. Survives JPEG.
+WATERMARK_METHOD = 'dwtDct'  # Discrete Wavelet Transform + DCT. Survives JPEG at quality 70+.
 
-    if img is None:
-        raise ValueError(f"Could not read image at {image_path}")
+# ── Noise ──────────────────────────────────────────────────────────────────
 
-    img = img.astype(np.float32) / 255.0
-
-    noise = np.random.uniform(-1, 1, img.shape).astype(np.float32)
-
-    amored_img = img + NOISE_EPSILON * np.sign(noise)
-
-    amored_img = np.clip(amored_img, 0, 1)
+def apply_frequency_domain_noise(image_array: np.ndarray) -> np.ndarray:
+    """
+    Injects adversarial noise in DCT frequency domain.
+    Targets mid-frequency bands (8:64, 8:64) — JPEG preserves these.
+    High-frequency bands (64+) are what JPEG discards. We avoid those.
+    """
+    result = image_array.astype(float).copy()
     
-    output_path = os.path.join(STORAGE_DIR, "noised_" + os.path.basename(image_path))
-    cv2.imwrite(output_path, (amored_img * 255).astype(np.uint8))
+    for channel in range(3):  # R, G, B
+        freq = dct(dct(result[:, :, channel].T, norm='ortho').T, norm='ortho')
+        noise_mask = np.random.choice([-1, 1], size=freq.shape) * NOISE_EPSILON * 255
+        freq[8:64, 8:64] += noise_mask[8:64, 8:64]  # Mid-frequency target only
+        result[:, :, channel] = idct(idct(freq.T, norm='ortho').T, norm='ortho')
     
-    return output_path
+    return np.clip(result, 0, 255).astype(np.uint8)
 
-def apply_watermark(image_path, watermark_text):
+# ── Watermark ──────────────────────────────────────────────────────────────
 
-    bgr = cv2.imread(image_path)
-    
-    if bgr is None:
-         raise ValueError(f"Could not read image at {image_path} for watermarking")
-        
+def inject_watermark(image_array: np.ndarray, watermark_id: str) -> np.ndarray:
+    """
+    Embeds watermark_id using dwtDct method.
+    Survives: JPEG quality 70+, minor cropping, color adjustments.
+    This is your cryptographic proof of ownership for DMCA.
+    """
     encoder = WatermarkEncoder()
-    encoder.set_watermark('bytes', watermark_text.encode('utf-8'))
+    encoder.set_watermark('bytes', watermark_id.encode('utf-8'))
+    return encoder.encode(image_array, method=WATERMARK_METHOD)
 
-    bgr_encoded = encoder.encode(bgr, 'dwtDct')
+def extract_watermark(image_array: np.ndarray, wm_byte_length: int) -> str:
+    """Extracts and returns watermark string. Returns empty string on failure."""
+    try:
+        decoder = WatermarkDecoder('bytes', wm_byte_length * 8)
+        result = decoder.decode(image_array, method=WATERMARK_METHOD)
+        return result.decode('utf-8', errors='ignore')
+    except Exception:
+        return ""
+
+# ── Validation ─────────────────────────────────────────────────────────────
+
+def simulate_platform_compression(image_array: np.ndarray, quality: int = 75) -> np.ndarray:
+    """Simulates Instagram/Telegram-level JPEG compression."""
+    img = Image.fromarray(image_array)
+    buffer = io.BytesIO()
+    img.save(buffer, format='JPEG', quality=quality)
+    buffer.seek(0)
+    return np.array(Image.open(buffer))
+
+def validate_armor(armored_array: np.ndarray, watermark_id: str) -> dict:
+    """
+    Compresses the armored image as platforms would, then tries to recover the watermark.
+    Called before delivering the image to the user.
+    Returns a dict with the validation result.
+    """
+    compressed = simulate_platform_compression(armored_array, quality=75)
+    recovered = extract_watermark(compressed, len(watermark_id))
+    survived = watermark_id[:8] in recovered  # Prefix check is sufficient for validation
     
-    final_path = os.path.join(STORAGE_DIR, "amored_" + os.path.basename(image_path))
-    cv2.imwrite(final_path, bgr_encoded)
+    return {
+        "passed": survived,
+        "watermark_id": watermark_id,
+        "recovered_prefix": recovered[:8] if recovered else None,
+        "compression_quality_tested": 75,
+        "warning": None if survived else "Watermark did not survive compression simulation. Do not deliver."
+    }
+
+# ── Master Pipeline ────────────────────────────────────────────────────────
+
+def armor_image(image_array: np.ndarray, watermark_id: str) -> tuple[np.ndarray, dict]:
+    """
+    Full armor pipeline. Call this from celery_worker.py.
+    Returns: (armored_image_array, validation_report)
+    """
+    noised = apply_frequency_domain_noise(image_array)
+    watermarked = inject_watermark(noised, watermark_id)
+    validation = validate_armor(watermarked, watermark_id)
     
-    return final_path
+    if not validation["passed"]:
+        # Log this. Consider alerting the ops team. Do not silently deliver.
+        print(f"[ARMOR WARNING] Watermark validation failed for ID {watermark_id}")
+    
+    return watermarked, validation

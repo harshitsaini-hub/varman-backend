@@ -1,50 +1,209 @@
+# celery_worker.py
 import os
 import uuid
-import face_recognition
-import imagehash
+import numpy as np
 from PIL import Image
 from celery import Celery
+from celery.schedules import crontab
+from celery.utils.log import get_task_logger
 
-from services.amor_service import apply_adversarial_noise, apply_watermark
-from services.db_service import save_image_metadata
+from config import (
+    REDIS_URL, TEMP_STORAGE_PATH, ARMOR_VALIDATION_MIN_QUALITY
+)
+from services import db_service, amor_service, bloom_service, notification_service
+from utils.hashing import compute_phash
+from utils.face import extract_face_encoding
+from db import get_db_session
+import redis
 
-celery_app = Celery('amor_worker', broker='redis://localhost:6373/0')
+logger = get_task_logger(__name__)
+redis_client = redis.from_url(REDIS_URL)
 
-@celery_app.task
-def process_image_task(user_id: str, file_path: str):
-    noised_path = None
-    final_path = None
-    
+app = Celery('amor', broker=REDIS_URL, backend=REDIS_URL)
+
+# ── Beat Schedule ──────────────────────────────────────────────────────────
+
+app.conf.beat_schedule = {
+    'rebuild-bloom-filter-daily': {
+        'task': 'celery_worker.rebuild_global_bloom',
+        'schedule': crontab(hour=0, minute=0),
+    },
+}
+app.conf.timezone = 'UTC'
+
+# ── Scheduled Task ─────────────────────────────────────────────────────────
+
+@app.task(name='celery_worker.rebuild_global_bloom')
+def rebuild_global_bloom():
+    """
+    Runs at midnight UTC every day.
+    Rebuilds the Bloom Filter with a fresh daily salt.
+    Pushes result to Redis for the extension endpoint to serve.
+    """
+    db = get_db_session()
     try:
-        print(f"[WORKER] Picked up job for: {file_path}")
+        all_phashes = db_service.get_all_phashes(db)
+        bloom_b64 = bloom_service.build_global_bloom_filter(all_phashes)
+        redis_client.set("global_bloom_filter", bloom_b64, ex=90000)  # 25hr TTL
+        logger.info(f"[BLOOM] Rebuilt. {len(all_phashes)} hashes. Salt: {bloom_service.get_daily_salt()}")
+    except Exception as e:
+        logger.error(f"[BLOOM] Rebuild failed: {e}")
+    finally:
+        db.close()
 
-        img = Image.open(file_path)
-        real_phash = str(imagehash.phash(img))
+# ── Main Pipeline ──────────────────────────────────────────────────────────
 
-        noised_path = apply_adversarial_noise(file_path)
-        watermark_id = f"W-{uuid.uuid4().hex[:8]}"
-        final_path = apply_watermark(noised_path, watermark_id)
+@app.task(
+    name='celery_worker.process_image',
+    bind=True,
+    max_retries=3,
+    default_retry_delay=10,
+    autoretry_for=(Exception,)
+)
+def process_image(self, user_id: int, temp_file_path: str):
+    """
+    The full armor pipeline. Every step either succeeds or fails loudly.
+    No silent failures. No delivering an image we haven't verified.
 
-        image_data = face_recognition.load_image_file(final_path)
-        encodings = face_recognition.face_encodings(image_data)
+    Steps:
+    1. Load image from temp storage
+    2. Compute pHash (before armoring — hash the original, not the noised version)
+    3. Extract face encoding
+    4. Apply frequency-domain adversarial noise
+    5. Inject dwtDct watermark
+    6. VALIDATE: simulate platform compression, verify watermark survives
+    7. On validation pass: save to DB, persist armored image, clean up temp
+    8. On validation fail: alert ops, do not deliver, clean up temp
+    """
+    db = get_db_session()
+    armored_output_path = None
 
-        if len(encodings) > 0:
-            face_vector = encodings[0]
+    try:
+        # ── Step 1: Load ───────────────────────────────────────────────────
+        logger.info(f"[TASK] Starting pipeline. User: {user_id}, File: {temp_file_path}")
 
-            save_image_metadata(user_id, real_phash, watermark_id, face_vector)
-            print("[WORKER] Image successfully armored and secured.")
-        else:
-            print(f"[WORKER] ERROR: No face detected in {file_path}")
+        if not os.path.exists(temp_file_path):
+            raise FileNotFoundError(f"Temp file missing: {temp_file_path}")
+
+        image = Image.open(temp_file_path).convert("RGB")
+        image_array = np.array(image)
+        logger.info(f"[TASK] Loaded image. Shape: {image_array.shape}")
+
+        # ── Step 2: pHash (on clean original, before any modification) ─────
+        phash = compute_phash(image_array)
+        logger.info(f"[TASK] pHash computed: {phash}")
+
+        # ── Step 3: Face Encoding ──────────────────────────────────────────
+        face_vector = extract_face_encoding(image_array)
+        if face_vector is None:
+            # Non-fatal: user may upload a non-face image (artwork, screenshot)
+            # We still protect it via pHash + watermark, just no face vector
+            logger.warning(f"[TASK] No face detected. Proceeding without face vector.")
+
+        # ── Step 4 + 5 + 6: Armor + Validate (single call to amor_service) ─
+        watermark_id = str(uuid.uuid4())
+        armored_array, validation_report = amor_service.armor_image(image_array, watermark_id)
+
+        logger.info(
+            f"[TASK] Armor validation result: passed={validation_report['passed']} | "
+            f"watermark_id={watermark_id} | "
+            f"recovered_prefix={validation_report['recovered_prefix']} | "
+            f"compression_tested={validation_report['compression_quality_tested']}q"
+        )
+
+        # ── Step 6a: Hard stop if validation failed ────────────────────────
+        if not validation_report["passed"]:
+            _handle_validation_failure(user_id, watermark_id, validation_report)
+            return {
+                "status": "failed",
+                "reason": "armor_validation_failed",
+                "watermark_id": watermark_id,
+                "details": validation_report
+            }
+
+        # ── Step 7: Persist armored image to disk ──────────────────────────
+        armored_output_path = os.path.join(
+            TEMP_STORAGE_PATH, f"armored_{user_id}_{uuid.uuid4().hex}.jpg"
+        )
+        armored_image = Image.fromarray(armored_array)
+        armored_image.save(armored_output_path, format='JPEG', quality=95)
+        logger.info(f"[TASK] Armored image saved: {armored_output_path}")
+
+        # ── Step 8: Save to DB ─────────────────────────────────────────────
+        db_service.save_protected_image(
+            db=db,
+            user_id=user_id,
+            phash=phash,
+            watermark_id=watermark_id,
+            face_vector=face_vector,        # None is acceptable here
+            armored_image_path=armored_output_path,
+            validation_passed=validation_report["passed"],
+            compression_quality_tested=validation_report["compression_quality_tested"]
+        )
+        logger.info(f"[TASK] DB record saved. Watermark ID: {watermark_id}")
+
+        # ── Step 9: Clean up temp (original only, keep armored) ───────────
+        _safe_delete(temp_file_path)
+        logger.info(f"[TASK] Temp file deleted: {temp_file_path}")
+
+        # ── Step 10: Trigger Bloom Filter rebuild to include new pHash ─────
+        # Non-blocking: push to queue, don't wait
+        rebuild_global_bloom.apply_async(countdown=5)
+        logger.info(f"[TASK] Bloom rebuild queued.")
+
+        return {
+            "status": "success",
+            "user_id": user_id,
+            "watermark_id": watermark_id,
+            "phash": phash,
+            "face_detected": face_vector is not None,
+            "validation": validation_report,
+            "armored_path": armored_output_path
+        }
+
+    except FileNotFoundError as e:
+        logger.error(f"[TASK] File error: {e}")
+        # Don't retry on missing file — it won't appear on retry
+        raise self.retry(max_retries=0)
 
     except Exception as e:
-        print(f"[WORKER] FAILED to process {file_path}: {e}")
-        
-    finally:
+        logger.error(f"[TASK] Pipeline error for user {user_id}: {e}", exc_info=True)
+        _safe_delete(temp_file_path)
+        raise  # Celery autoretry handles this (max_retries=3)
 
-        print("[WORKER] Sweeping the floor... deleting temporary files.")
-        for path in [file_path, noised_path, final_path]:
-            if path and os.path.exists(path):
-                try:
-                    os.remove(path)
-                except OSError as e:
-                    print(f"Error deleting {path}: {e}")
+    finally:
+        db.close()
+
+
+# ── Helpers ────────────────────────────────────────────────────────────────
+
+def _handle_validation_failure(user_id: int, watermark_id: str, report: dict):
+    """
+    Called when the armored image fails compression validation.
+    Logs it. Notifies ops. Does NOT deliver the image to the user.
+    Future: queue for re-processing with adjusted epsilon.
+    """
+    logger.error(
+        f"[VALIDATION FAIL] user_id={user_id} watermark_id={watermark_id} "
+        f"recovered={report['recovered_prefix']} "
+        f"tested_at_quality={report['compression_quality_tested']}"
+    )
+    # Notify ops channel (Slack/email — implement in notification_service)
+    notification_service.send_ops_alert(
+        subject="AMOR Armor Validation Failed",
+        body=(
+            f"User {user_id}'s image failed watermark validation after compression simulation.\n"
+            f"Watermark ID: {watermark_id}\n"
+            f"Recovered prefix: {report['recovered_prefix']}\n"
+            f"Tested at JPEG quality: {report['compression_quality_tested']}\n"
+            f"Image was NOT delivered. Manual review required."
+        )
+    )
+
+def _safe_delete(path: str):
+    """Deletes a file silently. Never crashes the pipeline on cleanup failure."""
+    try:
+        if path and os.path.exists(path):
+            os.remove(path)
+    except Exception as e:
+        logger.warning(f"[CLEANUP] Failed to delete {path}: {e}")

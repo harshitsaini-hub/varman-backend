@@ -7,11 +7,11 @@ Language: Python exclusively for the backend. DO NOT provide Java code.
 
 Architecture: Keep solutions simple. No over-engineering.
 
-Interaction: Do not agree with me by default. Stress-test my ideas first to find vulnerabilities. No empty compliments.
+Interaction: Do not agree with me by default. Your first instinct should be to stress-test my ideas to find vulnerabilities. No empty compliments.
 
 1. The Tech Stack
 
-Frontend: React (Dashboard for uploads, viewing vault, and triggering DMCA actions).
+Frontend: React (Dashboard for uploads, viewing vault, and triggering legal actions).
 
 Backend Receptionist: FastAPI (Python).
 
@@ -21,112 +21,50 @@ The Heavy Lifter: Celery Workers (Python).
 
 The Vault: PostgreSQL with pgvector extension (Docker).
 
-The Radar: Chrome Extension (JavaScript/MutationObserver/Bloom Filter) & Python Scrapers (PRAW/Telethon for Danger Zones).
+The Radar: Chrome Extension (JavaScript/MutationObserver) & Python Scrapers (PRAW, Telethon, basc-py4chan).
 
 2. The Backend Protection Pipeline (Working State)
 
-User uploads an image via React.
+Upload: User uploads an image via React.
 
-FastAPI saves the file temporarily and immediately pushes a ticket to Redis (.delay()), responding to the user instantly to prevent bottlenecking.
+Queue: FastAPI saves the file temporarily and pushes a ticket to Redis (.delay()), responding to the user instantly.
 
-Celery picks up the ticket, calculates the real pHash for the Mesh Network, applies adversarial noise (NOISE_EPSILON = 0.02), injects an invisible watermark (Steganography), and extracts the 128-dimension face encoding array.
+Armor & Validate: Celery picks up the ticket, calculates the real pHash, applies DCT Frequency Domain Adversarial Noise (EPSILON = 0.04), and injects an invisible dwtDct watermark. It then runs a JPEG compression simulation to validate the armor survived.
 
-Celery saves the User ID, pHash, Watermark ID, and Face Vector into a single row in the unified pgvector database.
+Memory: Celery extracts the 128-dimension face encoding array and saves the User ID, pHash, Watermark ID, and Face Vector into a single row in the unified pgvector database.
 
-Celery deletes all temporary files to prevent server crashes.
+Delivery & Cleanup: Celery deletes all temporary files to prevent server crashes. User downloads the Armored image.
 
-3. The Radar Pipeline (The Mesh Network)
+3. The Mesh Network & Radar
 
-The Chrome Extension observes the DOM (e.g., Instagram feed) without sending every image to the server.
+The Hivemind: When User A installs the AMOR extension, it downloads a lightweight Bloom Filter of everyone’s protected pHashes, protected by a Daily Rotating Salt to prevent membership tracking.
 
-It calculates the pHash of visible images locally on the user's machine.
+Client-Side Execution: The Chrome Extension observes the DOM (e.g., Instagram feed). It computes the pHash of visible images locally on the user's machine.
 
-It checks the local hash against a lightweight Bloom Filter of protected hashes.
+The Silent Flare: It checks the local hash against the Bloom Filter. Only if there is a match does it ping the FastAPI backend with the suspect hash and URL.
 
-Only if there is a match does it ping the FastAPI backend with the suspect hash and URL.
+4. The Danger Zone Bots (Free OSINT)
 
-4. The Action Pipeline (Manual Trigger)
+Execution: Three Python scripts run on the backend using PRAW (Reddit), Telethon (Telegram), and basc-py4chan (4chan).
 
-To avoid legal liability, AMOR does not automatically issue DMCAs.
+Flow: These bots sit in specific degenerate communities (e.g., r/SFWdeepfakes, /b/ boards). The second an image is uploaded, the bot hashes it and checks the pgvector database.
 
-When the Radar spots a match, the backend emails the user: "AMOR spotted your image at [URL].".
+5. The Action Pipeline (Manual Trigger)
 
-The user logs into the React Dashboard to review. If it is malicious, the user clicks "Generate Takedown," and the backend generates/sends the DMCA.
+Alert: When the Radar or Scrapers spot a match, the backend emails the victim: "AMOR spotted your image at [URL]."
 
-Current Progress:
-The Docker infrastructure (PostgreSQL/pgvector + Redis) is running. The pgvector database logic (db_service.py) is complete and unified. The Celery Worker (celery_worker.py) is successfully processing background tasks. The FastAPI Receptionist (main.py) is correctly handing off to the queue.
+Review: The user logs into the React Dashboard. To avoid legal liability, AMOR does not automatically issue DMCAs.
 
-amor flow
-Upload: User logs in, uploads image.
+Scenario A (General Identity Theft): User clicks "Generate Takedown." AMOR generates a standard DMCA Notice, explicitly highlighting the cryptographic proof (the watermark ID).
 
-Queue: FastAPI accepts and hands it to Celery.
+Scenario B (Intimate / Explicit Deepfake): AMOR generates an NCII specific template emphasizing "Platform Safety Guidelines." The dashboard displays the pre-filled text with a direct link to the platform's NCII Portal so the user can submit it safely.
 
-Armor: Celery applies Adversarial Noise + Steganography.
-
-Memory: pgvector saves the Face Array + Watermark ID + pHash.
-
-Delivery: Original deleted. User downloads the Armored image.
-
-Radar: User posts it. AMOR Chrome Extensions silently watch the web.
-
-Strike: If an extension spots a deepfaked version, it instantly flags the server.
-
-Action: Server reads the watermark/face array, calculates the Confidence Score (Layer 4), and emails the user the pre-filled DMCA template (Layer 5).
-
-
-
-1. The AMOR Hivemind (The Mesh Network)
-
-You assumed the Chrome extension only looks for that specific user's photos. That is not how we are going to build it.
-
-
-
-The Architecture: When User A installs the AMOR extension, it downloads a lightweight, compressed list of everyone’s pHashes.
-
-The Execution: When User A is scrolling through Reddit on their laptop, the extension isn't just looking for User A's face. It is looking for any AMOR user's face.
-
-The Result: If User A stumbles upon a deepfake of User B, the extension silently flags your server, and User B gets the DMCA alert email instantly.
-
-The Power: If you have 10,000 users, you have 10,000 decentralized bots scraping the web for free, 24/7. You don't need to sweep the internet; your users' collective browsing habits are the sweep.
-
-
-
-2. The Danger Zone Bots (Free OSINT)
-
-The Architecture: Deepfakes don't usually go viral on mainstream Instagram first. They are born in the "Danger Zones"—specific 4chan boards, dedicated Reddit communities (like r/SFWdeepfakes), and public Telegram channels.
-
-The Execution: You write three simple Python scripts using free wrappers: PRAW (for Reddit), Telethon (for Telegram), and Discord.py.
-
-The Flow: These scripts live on your backend. They don't search the whole internet. They just sit in those 20 specific degenerate groups and listen. The second an image is uploaded to those groups, the bot grabs it, hashes it, and checks your pgvector database.
-
-The Cost: API access to Reddit, Discord, and Telegram bots is completely free.
-
-
-
-heres amor's architecture
-
+6. Architecture Tree
 amor-backend/
-
-├── services/ # The "Workers" (DB logic, Noise logic, Recognition)
-
-├── utils/ # Helper tools (Image processing, hashing)
-
-├── storage/ # Temporary "Godown" for processing images
-
-├── config.py # The "Brain" (Environment variables and constants)
-
-├── celery_worker.py # The "Heavy Lifter" (Background processing)
-
-├── main.py # The "Receptionist" (FastAPI Endpoints)
-
-└── requirements.txt # The "Shopping List"
-
-updated the complaint phase proactiveScenario A: General Deepfake / Identity Theft
-
-Action: AMOR generates the standard DMCA Notice. It explicitly highlights the cryptographic proof (the watermark ID) proving ownership of the base image.
-
-Scenario B: Intimate / Explicit Deepfake
-
-Action: AMOR generates an NCII specific template emphasizing "Platform Safety Guidelines" and "Non-Consensual Imagery."
-
-The Execution: Instead of our backend trying to hack Meta's portal, the React dashboard displays the pre-filled text with a giant button: "Click here to open Meta's NCII Portal" so the user can just copy, paste, and submit legally as a human.
+├── services/ (DB logic, Noise logic, Recognition)
+├── utils/ (Helper tools, validation)
+├── storage/ (Temporary Godown)
+├── config.py (Environment variables)
+├── celery_worker.py (Background processing)
+├── main.py (FastAPI Endpoints)
+└── requirements.txt (Dependencies)
