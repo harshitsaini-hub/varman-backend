@@ -1,39 +1,42 @@
 import time
+
 import basc_py4chan
-from utils.hashing import compute_phash_from_url
+
 from services import db_service, notification_service
+from utils.hashing import compute_phash_from_url
 
 DANGER_BOARDS = ["b", "gif"]
 POLL_INTERVAL_SECONDS = 300
 
+
 def start_watcher(db):
     seen_post_ids: set = set()
-    
+
     while True:
         try:
             for board_name in DANGER_BOARDS:
                 board = basc_py4chan.Board(board_name)
                 all_threads = board.get_all_threads(expand=True)
-                
+
                 for thread in all_threads:
                     for post in thread.posts:  # type: ignore[union-attr]
-                        post_id = getattr(post, 'post_id', None)
+                        post_id = getattr(post, "post_id", None)
                         if post_id in seen_post_ids:
                             continue
-                        
-                        has_file = getattr(post, 'has_file', False)
+
+                        has_file = getattr(post, "has_file", False)
                         if not has_file:
                             continue
 
-                        post_file = getattr(post, 'file', None)
+                        post_file = getattr(post, "file", None)
                         if post_file is None:
                             continue
 
-                        is_image = getattr(post_file, 'is_image', False)
+                        is_image = getattr(post_file, "is_image", False)
                         if not is_image:
                             continue
 
-                        file_url = getattr(post_file, 'file_url', None)
+                        file_url = getattr(post_file, "file_url", None)
                         if not file_url:
                             continue
 
@@ -50,7 +53,7 @@ def start_watcher(db):
                                 suspect_url=thread.url,  # type: ignore[union-attr]
                                 image_url=file_url,
                                 platform="4chan",
-                                context=f"/{board_name}/ — Thread {getattr(thread, 'id', '?')}"
+                                context=f"/{board_name}/ — Thread {getattr(thread, 'id', '?')}",
                             )
 
             if len(seen_post_ids) > 50000:
