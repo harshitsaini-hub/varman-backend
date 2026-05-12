@@ -2,6 +2,7 @@ import os
 import uuid
 import numpy as np
 import redis
+import json
 from celery import Celery
 from celery.schedules import crontab
 from celery.utils.log import get_task_logger
@@ -37,8 +38,8 @@ def rebuild_global_bloom():
     db = get_db_session()
     try:
         all_phashes = db_service.get_all_phashes(db)
-        bloom_b64 = bloom_service.build_global_bloom_filter(all_phashes)
-        redis_client.set("global_bloom_filter", bloom_b64, ex=90000)  # 25hr TTL
+        bloom_data = bloom_service.build_global_bloom_filter(all_phashes)
+        redis_client.set("global_bloom_filter", json.dumps(bloom_data), ex=90000)
         logger.info(
             "[BLOOM] Rebuilt. %s hashes. Salt: %s",
             len(all_phashes),

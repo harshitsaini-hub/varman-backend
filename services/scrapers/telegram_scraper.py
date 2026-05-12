@@ -42,4 +42,4 @@ async def start_watcher(client: TelegramClient, db):
         except Exception as e:
             print(f"[TELEGRAM ERROR] {e}")
 
-    await client.run_until_disconnected()
+    await client.run_until_disconnected()  # type: ignore[func-returns-value]

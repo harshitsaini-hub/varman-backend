@@ -59,8 +59,7 @@ async def protect_images(
             f.write(await file.read())
         saved_paths.append(temp_path)
 
-        # Handoff to Celery
-        process_image.delay(user_id, temp_path)
+        process_image.delay(user_id, temp_path)  # type: ignore[attr-defined]
 
     return {
         "message": "Images accepted. The Armor is being applied in the background.",
