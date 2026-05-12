@@ -20,6 +20,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(protect_router)
+
 
 # --- PYDANTIC MODELS (Strict Data Validation) ---
 class RadarPayload(BaseModel):

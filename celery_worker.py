@@ -14,7 +14,7 @@ from services import amor_service, bloom_service, db_service, notification_servi
 from utils.face import extract_face_encoding
 from utils.hashing import compute_phash
 
-logger = get_task_logger(__name__)
+logger = logging.getLogger(__name__)
 redis_client = redis.from_url(REDIS_URL)
 
 app = Celery("amor", broker=REDIS_URL, backend=REDIS_URL)
@@ -29,7 +29,6 @@ app.conf.beat_schedule = {
 }
 app.conf.update(timezone="UTC")
 
-# ── Scheduled Task ─────────────────────────────────────────────────────────
 
 
 @app.task(name="celery_worker.rebuild_global_bloom")
@@ -37,6 +36,7 @@ def rebuild_global_bloom():
 
     db = get_db_session()
     try:
+        db = get_db_session()
         all_phashes = db_service.get_all_phashes(db)
         bloom_data = bloom_service.build_global_bloom_filter(all_phashes)
         redis_client.set("global_bloom_filter", json.dumps(bloom_data), ex=90000)
@@ -48,7 +48,8 @@ def rebuild_global_bloom():
     except Exception as e:
         logger.error(f"[BLOOM] Rebuild failed: {e}")
     finally:
-        db.close()
+        if db is not None:
+            db.close()
 
 
 # ── Main Pipeline ──────────────────────────────────────────────────────────
