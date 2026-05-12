@@ -3,6 +3,7 @@ import uuid
 import numpy as np
 import redis
 import json
+import logging
 from celery import Celery
 from celery.schedules import crontab
 from celery.utils.log import get_task_logger
