@@ -1,19 +1,14 @@
 from telethon import TelegramClient, events
-
-from services import db_service, notification_service
 from utils.hashing import compute_phash_from_bytes
+from services import db_service, notification_service
 
 DANGER_CHANNELS = [
-    # Add actual channel slugs/IDs from your threat intelligence
-    # Example placeholders:
-    "deepfake_channel_1",
-    "deepfake_channel_2",
+    "your_channel_slug_1",
+    "your_channel_slug_2",
 ]
 
-
 async def start_watcher(client: TelegramClient, db):
-    print(f"[TELEGRAM] Watching {len(DANGER_CHANNELS)} channels")
-
+    
     @client.on(events.NewMessage(chats=DANGER_CHANNELS))
     async def handler(event):
         try:
@@ -21,22 +16,27 @@ async def start_watcher(client: TelegramClient, db):
                 return
 
             media_bytes = await event.download_media(bytes)
-            if media_bytes is None:
+
+            if not isinstance(media_bytes, bytes):
                 return
 
             phash = compute_phash_from_bytes(media_bytes)
-            match = db_service.lookup_phash_global(db, phash, threshold=10)
+            
+            if phash is None:
+                return
 
+            match = db_service.lookup_phash_global(db, phash, threshold=10)
             if match:
                 chat = await event.get_chat()
+                chat_title = getattr(chat, 'title', 'Unknown')
                 notification_service.send_radar_alert(
                     user_id=match.user_id,
-                    suspect_url=f"Telegram channel: {getattr(chat, 'title', 'Unknown')}",
+                    suspect_url=f"Telegram: {chat_title}",
                     image_url="[Telegram — no direct URL]",
                     platform="Telegram",
-                    context=f"Message ID: {event.message.id}",
+                    context=f"Message ID: {event.message.id}"
                 )
-                print(f"[TELEGRAM HIT] Match found. User {match.user_id} notified.")
+
         except Exception as e:
             print(f"[TELEGRAM ERROR] {e}")
 

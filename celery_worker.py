@@ -25,13 +25,12 @@ app = Celery("amor", broker=REDIS_URL, backend=REDIS_URL)
 app.conf.beat_schedule = {
     "rebuild-bloom-filter-daily": {
         "task": "celery_worker.rebuild_global_bloom",
-        "schedule": crontab(hour=0, minute=0),
+        "schedule": crontab(hour="0", minute="0"),
     },
 }
-app.conf.timezone = "UTC"
+app.conf.update(timezone="UTC")
 
 # ── Scheduled Task ─────────────────────────────────────────────────────────
-
 
 @app.task(name="celery_worker.rebuild_global_bloom")
 def rebuild_global_bloom():
@@ -66,7 +65,7 @@ def rebuild_global_bloom():
     default_retry_delay=10,
     autoretry_for=(Exception,),
 )
-def process_image(self, user_id: int, temp_file_path: str):
+def process_image(self, user_id: str, temp_file_path: str):
     """
     The full armor pipeline. Every step either succeeds or fails loudly.
     No silent failures. No delivering an image we haven't verified.
@@ -152,9 +151,7 @@ def process_image(self, user_id: int, temp_file_path: str):
         _safe_delete(temp_file_path)
         logger.info(f"[TASK] Temp file deleted: {temp_file_path}")
 
-        # ── Step 10: Trigger Bloom Filter rebuild to include new pHash ─────
-        # Non-blocking: push to queue, don't wait
-        rebuild_global_bloom.apply_async(countdown=5)
+        rebuild_global_bloom.apply_async(countdown=5)  # type: ignore[attr-defined]
         logger.info("[TASK] Bloom rebuild queued.")
 
         return {
@@ -184,7 +181,7 @@ def process_image(self, user_id: int, temp_file_path: str):
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 
-def _handle_validation_failure(user_id: int, watermark_id: str, report: dict):
+def _handle_validation_failure(user_id: str, watermark_id: str, report: dict):
     """
     Called when the armored image fails compression validation.
     Logs it. Notifies ops. Does NOT deliver the image to the user.

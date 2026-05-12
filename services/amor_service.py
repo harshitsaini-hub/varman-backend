@@ -41,7 +41,7 @@ def inject_watermark(image_array: np.ndarray, watermark_id: str) -> np.ndarray:
     This is your cryptographic proof of ownership for DMCA.
     """
     encoder = WatermarkEncoder()
-    encoder.set_watermark("bytes", watermark_id.encode("utf-8"))
+    encoder.set_watermark("bytes", watermark_id.encode("utf-8"))  # type: ignore[arg-type]
     return encoder.encode(image_array, method=WATERMARK_METHOD)
 
 
@@ -50,7 +50,7 @@ def extract_watermark(image_array: np.ndarray, wm_byte_length: int) -> str:
     try:
         decoder = WatermarkDecoder("bytes", wm_byte_length * 8)
         result = decoder.decode(image_array, method=WATERMARK_METHOD)
-        return result.decode("utf-8", errors="ignore")
+        return result.decode("utf-8", errors="ignore")  #type: ignore[arg-type]
     except Exception:
         return ""
 
