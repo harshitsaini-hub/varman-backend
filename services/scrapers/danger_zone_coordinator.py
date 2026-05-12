@@ -1,6 +1,8 @@
 import asyncio
 import threading
-from services.scrapers import reddit_scraper, telegram_scraper, fourchan_scraper
+
+from services.scrapers import fourchan_scraper, reddit_scraper, telegram_scraper
+
 
 def launch_all_danger_zone_watchers(db, reddit_client, telegram_client):
     """
@@ -12,28 +14,23 @@ def launch_all_danger_zone_watchers(db, reddit_client, telegram_client):
         target=reddit_scraper.start_watcher,
         args=(reddit_client, db),
         daemon=True,
-        name="reddit-watcher"
+        name="reddit-watcher",
     )
-    
+
     # 4chan: polling loop, runs in its own thread
     fourchan_thread = threading.Thread(
-        target=fourchan_scraper.start_watcher,
-        args=(db,),
-        daemon=True,
-        name="fourchan-watcher"
+        target=fourchan_scraper.start_watcher, args=(db,), daemon=True, name="fourchan-watcher"
     )
-    
+
     # Telegram: async, runs in its own event loop thread
     telegram_thread = threading.Thread(
-        target=_run_telegram_async,
-        args=(telegram_client, db),
-        daemon=True,
-        name="telegram-watcher"
+        target=_run_telegram_async, args=(telegram_client, db), daemon=True, name="telegram-watcher"
     )
-    
+
     for t in [reddit_thread, fourchan_thread, telegram_thread]:
         t.start()
         print(f"[DANGER ZONE] Started {t.name}")
+
 
 def _run_telegram_async(client, db):
     loop = asyncio.new_event_loop()
