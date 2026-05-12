@@ -1,39 +1,39 @@
 # celery_worker.py
 import os
 import uuid
+
 import numpy as np
-from PIL import Image
+import redis
 from celery import Celery
 from celery.schedules import crontab
 from celery.utils.log import get_task_logger
+from PIL import Image
 
-from config import (
-    REDIS_URL, TEMP_STORAGE_PATH, ARMOR_VALIDATION_MIN_QUALITY
-)
-from services import db_service, amor_service, bloom_service, notification_service
-from utils.hashing import compute_phash
-from utils.face import extract_face_encoding
+from config import REDIS_URL, TEMP_STORAGE_PATH
 from db import get_db_session
-import redis
+from services import amor_service, bloom_service, db_service, notification_service
+from utils.face import extract_face_encoding
+from utils.hashing import compute_phash
 
 logger = get_task_logger(__name__)
 redis_client = redis.from_url(REDIS_URL)
 
-app = Celery('amor', broker=REDIS_URL, backend=REDIS_URL)
+app = Celery("amor", broker=REDIS_URL, backend=REDIS_URL)
 
 # ── Beat Schedule ──────────────────────────────────────────────────────────
 
 app.conf.beat_schedule = {
-    'rebuild-bloom-filter-daily': {
-        'task': 'celery_worker.rebuild_global_bloom',
-        'schedule': crontab(hour=0, minute=0),
+    "rebuild-bloom-filter-daily": {
+        "task": "celery_worker.rebuild_global_bloom",
+        "schedule": crontab(hour=0, minute=0),
     },
 }
-app.conf.timezone = 'UTC'
+app.conf.timezone = "UTC"
 
 # ── Scheduled Task ─────────────────────────────────────────────────────────
 
-@app.task(name='celery_worker.rebuild_global_bloom')
+
+@app.task(name="celery_worker.rebuild_global_bloom")
 def rebuild_global_bloom():
     """
     Runs at midnight UTC every day.
@@ -45,20 +45,26 @@ def rebuild_global_bloom():
         all_phashes = db_service.get_all_phashes(db)
         bloom_b64 = bloom_service.build_global_bloom_filter(all_phashes)
         redis_client.set("global_bloom_filter", bloom_b64, ex=90000)  # 25hr TTL
-        logger.info(f"[BLOOM] Rebuilt. {len(all_phashes)} hashes. Salt: {bloom_service.get_daily_salt()}")
+        logger.info(
+            "[BLOOM] Rebuilt. %s hashes. Salt: %s",
+            len(all_phashes),
+            bloom_service.get_daily_salt(),
+        )
     except Exception as e:
         logger.error(f"[BLOOM] Rebuild failed: {e}")
     finally:
         db.close()
 
+
 # ── Main Pipeline ──────────────────────────────────────────────────────────
 
+
 @app.task(
-    name='celery_worker.process_image',
+    name="celery_worker.process_image",
     bind=True,
     max_retries=3,
     default_retry_delay=10,
-    autoretry_for=(Exception,)
+    autoretry_for=(Exception,),
 )
 def process_image(self, user_id: int, temp_file_path: str):
     """
@@ -98,7 +104,7 @@ def process_image(self, user_id: int, temp_file_path: str):
         if face_vector is None:
             # Non-fatal: user may upload a non-face image (artwork, screenshot)
             # We still protect it via pHash + watermark, just no face vector
-            logger.warning(f"[TASK] No face detected. Proceeding without face vector.")
+            logger.warning("[TASK] No face detected. Proceeding without face vector.")
 
         # ── Step 4 + 5 + 6: Armor + Validate (single call to amor_service) ─
         watermark_id = str(uuid.uuid4())
@@ -118,7 +124,7 @@ def process_image(self, user_id: int, temp_file_path: str):
                 "status": "failed",
                 "reason": "armor_validation_failed",
                 "watermark_id": watermark_id,
-                "details": validation_report
+                "details": validation_report,
             }
 
         # ── Step 7: Persist armored image to disk ──────────────────────────
@@ -126,7 +132,7 @@ def process_image(self, user_id: int, temp_file_path: str):
             TEMP_STORAGE_PATH, f"armored_{user_id}_{uuid.uuid4().hex}.jpg"
         )
         armored_image = Image.fromarray(armored_array)
-        armored_image.save(armored_output_path, format='JPEG', quality=95)
+        armored_image.save(armored_output_path, format="JPEG", quality=95)
         logger.info(f"[TASK] Armored image saved: {armored_output_path}")
 
         # ── Step 8: Save to DB ─────────────────────────────────────────────
@@ -135,10 +141,10 @@ def process_image(self, user_id: int, temp_file_path: str):
             user_id=user_id,
             phash=phash,
             watermark_id=watermark_id,
-            face_vector=face_vector,        # None is acceptable here
+            face_vector=face_vector,  # None is acceptable here
             armored_image_path=armored_output_path,
             validation_passed=validation_report["passed"],
-            compression_quality_tested=validation_report["compression_quality_tested"]
+            compression_quality_tested=validation_report["compression_quality_tested"],
         )
         logger.info(f"[TASK] DB record saved. Watermark ID: {watermark_id}")
 
@@ -149,7 +155,7 @@ def process_image(self, user_id: int, temp_file_path: str):
         # ── Step 10: Trigger Bloom Filter rebuild to include new pHash ─────
         # Non-blocking: push to queue, don't wait
         rebuild_global_bloom.apply_async(countdown=5)
-        logger.info(f"[TASK] Bloom rebuild queued.")
+        logger.info("[TASK] Bloom rebuild queued.")
 
         return {
             "status": "success",
@@ -158,13 +164,13 @@ def process_image(self, user_id: int, temp_file_path: str):
             "phash": phash,
             "face_detected": face_vector is not None,
             "validation": validation_report,
-            "armored_path": armored_output_path
+            "armored_path": armored_output_path,
         }
 
     except FileNotFoundError as e:
         logger.error(f"[TASK] File error: {e}")
         # Don't retry on missing file — it won't appear on retry
-        raise self.retry(max_retries=0)
+        raise self.retry(max_retries=0) from None
 
     except Exception as e:
         logger.error(f"[TASK] Pipeline error for user {user_id}: {e}", exc_info=True)
@@ -176,6 +182,7 @@ def process_image(self, user_id: int, temp_file_path: str):
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
 
 def _handle_validation_failure(user_id: int, watermark_id: str, report: dict):
     """
@@ -197,8 +204,9 @@ def _handle_validation_failure(user_id: int, watermark_id: str, report: dict):
             f"Recovered prefix: {report['recovered_prefix']}\n"
             f"Tested at JPEG quality: {report['compression_quality_tested']}\n"
             f"Image was NOT delivered. Manual review required."
-        )
+        ),
     )
+
 
 def _safe_delete(path: str):
     """Deletes a file silently. Never crashes the pipeline on cleanup failure."""
