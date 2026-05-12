@@ -7,7 +7,7 @@ DANGER_SUBREDDITS = [
     "SFWdeepfakes",
     "MediaSynthesis",
     "wormwood_studios",
-    "unstableaiart",  # Add/remove based on your threat intelligence
+    "unstableaiart",
 ]
 
 

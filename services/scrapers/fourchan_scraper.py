@@ -19,7 +19,7 @@ def start_watcher(db):
                 all_threads = board.get_all_threads(expand=True)
 
                 for thread in all_threads:
-                    for post in thread.posts:  # type: ignore[union-attr]
+                    for post in thread.posts: 
                         post_id = getattr(post, "post_id", None)
                         if post_id in seen_post_ids:
                             continue
@@ -50,7 +50,7 @@ def start_watcher(db):
                         if match:
                             notification_service.send_radar_alert(
                                 user_id=match.user_id,
-                                suspect_url=thread.url,  # type: ignore[union-attr]
+                                suspect_url=thread.url,
                                 image_url=file_url,
                                 platform="4chan",
                                 context=f"/{board_name}/ — Thread {getattr(thread, 'id', '?')}",

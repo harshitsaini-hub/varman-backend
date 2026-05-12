@@ -1,8 +1,6 @@
-"""Backward-compatible import shim for configuration values.
+import os
 
-New code should import from ``core.config``. This module remains so existing scripts
-and deployments that use ``from config import ...`` continue to work.
-"""
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 STORAGE_DIR = os.getenv("STORAGE_DIR", os.path.join(BASE_DIR, "storage"))
 DB_DIR = os.getenv("DB_DIR", os.path.join(BASE_DIR, "database"))

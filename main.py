@@ -10,7 +10,6 @@ from celery_worker import process_image
 from config import STORAGE_DIR
 from services.db_service import get_db_connection, init_db, lookup_phash_global
 from services.notification_service import send_radar_alert
-from routes.protect import protect_router
 
 app = FastAPI(title="Project AMOR API")
 
@@ -20,9 +19,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.include_router(protect_router)
-
 
 # --- PYDANTIC MODELS (Strict Data Validation) ---
 class RadarPayload(BaseModel):
