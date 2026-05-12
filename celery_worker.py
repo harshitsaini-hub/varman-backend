@@ -1,7 +1,5 @@
-# celery_worker.py
 import os
 import uuid
-
 import numpy as np
 import redis
 from celery import Celery
@@ -35,11 +33,7 @@ app.conf.update(timezone="UTC")
 
 @app.task(name="celery_worker.rebuild_global_bloom")
 def rebuild_global_bloom():
-    """
-    Runs at midnight UTC every day.
-    Rebuilds the Bloom Filter with a fresh daily salt.
-    Pushes result to Redis for the extension endpoint to serve.
-    """
+
     db = get_db_session()
     try:
         all_phashes = db_service.get_all_phashes(db)
@@ -67,20 +61,7 @@ def rebuild_global_bloom():
     autoretry_for=(Exception,),
 )
 def process_image(self, user_id: str, temp_file_path: str):
-    """
-    The full armor pipeline. Every step either succeeds or fails loudly.
-    No silent failures. No delivering an image we haven't verified.
 
-    Steps:
-    1. Load image from temp storage
-    2. Compute pHash (before armoring — hash the original, not the noised version)
-    3. Extract face encoding
-    4. Apply frequency-domain adversarial noise
-    5. Inject dwtDct watermark
-    6. VALIDATE: simulate platform compression, verify watermark survives
-    7. On validation pass: save to DB, persist armored image, clean up temp
-    8. On validation fail: alert ops, do not deliver, clean up temp
-    """
     db = get_db_session()
     armored_output_path = None
 
@@ -193,7 +174,7 @@ def _handle_validation_failure(user_id: str, watermark_id: str, report: dict):
         f"recovered={report['recovered_prefix']} "
         f"tested_at_quality={report['compression_quality_tested']}"
     )
-    # Notify ops channel (Slack/email — implement in notification_service)
+    # Notify ops channel
     notification_service.send_ops_alert(
         subject="AMOR Armor Validation Failed",
         body=(
