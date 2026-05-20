@@ -95,3 +95,18 @@ amor-backend/
 ├── Dockerfile
 ├── pyproject.toml
 └── requirements.txt
+
+To do :
+High: No authentication on sensitive endpoints. /protect, /api/radar/flag, and /api/takedown/generate trust submitted identity/user data, and CORS is wide open in main.py (line 18), main.py (line 45), main.py (line 70), main.py (line 100). This needs JWT/API-key auth, ownership checks, and restricted CORS before production.
+
+High: Upload DoS risk. Uploaded files are read fully into memory with no size/type/count limits in main.py (line 58) and api/routes/protect.py (line 43). Large or malicious images could exhaust memory/CPU during Pillow, face recognition, DCT noise, or watermark processing.
+
+High: Docker/default credential exposure. Postgres defaults to password, DB and Redis ports are exposed, and ankane/pgvector:latest is unpinned in docker-compose.yml (line 24), docker-compose.yml (line 31), docker-compose.yml (line 45). Good for local dev, unsafe for public deployment.
+
+Medium: Architecture drift around /protect. Docs say main.py registers api.routes.protect.router, but main.py does not. There are two /protect implementations: Celery-based in main.py (line 45) and FastAPI-background-task based in api/routes/protect.py (line 29). That split will cause behavior drift.
+
+Medium: Docker Compose does not run Celery workers. The API queues process_image.delay(...) in main.py (line 61), but docker-compose.yml only defines api, db, and redis. In default compose, uploads may be accepted but never processed unless a worker is launched separately.
+
+Medium: Long-running watchers are intentional loops, not tight infinite loops. fourchan_scraper has while True with sleep in fourchan_scraper.py (line 15), Reddit streams forever, and Telegram runs until disconnected. These are expected daemon loops, but they lack clean shutdown/backoff and share one DB connection through threads in danger_zone_coordinator.py (line 14).
+
+Medium: DB/performance issue. lookup_phash_global fetches every stored hash and compares in Python in db_service.py (line 171). This will degrade badly as AMOR grows.
