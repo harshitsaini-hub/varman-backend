@@ -1,5 +1,3 @@
-import logging
-
 from telethon import TelegramClient, events
 
 from services import db_service, notification_service

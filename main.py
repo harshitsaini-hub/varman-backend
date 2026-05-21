@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -17,6 +19,7 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-API-Key"],
 )
 app.include_router(protect_router)
+ServiceAuth = Annotated[dict, Depends(require_service_auth)]
 
 # --- PYDANTIC MODELS (Strict Data Validation) ---
 class RadarPayload(BaseModel):
@@ -42,7 +45,7 @@ def startup_event():
 # --- ENDPOINT 1: THE ARMOR FACTORY ---
 # --- ENDPOINT 2: THE SILENT FLARE (Receiver) ---
 @app.post("/api/radar/flag")
-async def radar_flag(payload: RadarPayload, _auth: dict = Depends(require_service_auth)):
+async def radar_flag(payload: RadarPayload, _auth: ServiceAuth):
     """
     Receives pings from the Chrome Extension and Python Scrapers.
     Queries pgvector natively. If matched, triggers the alert.
@@ -74,7 +77,7 @@ async def radar_flag(payload: RadarPayload, _auth: dict = Depends(require_servic
 @app.post("/api/takedown/generate")
 async def generate_takedown(
     payload: TakedownPayload,
-    auth_payload: dict = Depends(require_service_auth),
+    auth_payload: ServiceAuth,
 ):
     """
     Generates the specific legal weapon based on the threat type.

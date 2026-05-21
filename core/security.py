@@ -27,5 +27,5 @@ def require_service_auth(
 def require_owned_user_id(requested_user_id: str, auth_payload: dict) -> None:
     if auth_payload.get("auth_type") == "jwt":
         token_sub = auth_payload.get("sub")
-        if token_sub and token_sub != requested_user_id:
+        if not token_sub or token_sub != requested_user_id:
             raise HTTPException(status_code=403, detail="User ownership check failed")
