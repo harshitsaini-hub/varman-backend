@@ -1,13 +1,10 @@
-import os
-import uuid
-from typing import Annotated
-
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from celery_worker import process_image
-from config import STORAGE_DIR
+from api.routes.protect import router as protect_router
+from core.config import CORS_ALLOWED_ORIGINS
+from core.security import require_owned_user_id, require_service_auth
 from services.db_service import get_db_connection, init_db, lookup_phash_global
 from services.notification_service import send_radar_alert
 
@@ -15,10 +12,11 @@ app = FastAPI(title="Project AMOR API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=list(CORS_ALLOWED_ORIGINS),
+    allow_methods=["POST", "GET", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key"],
 )
+app.include_router(protect_router)
 
 # --- PYDANTIC MODELS (Strict Data Validation) ---
 class RadarPayload(BaseModel):
@@ -42,33 +40,9 @@ def startup_event():
 
 
 # --- ENDPOINT 1: THE ARMOR FACTORY ---
-@app.post("/protect")
-async def protect_images(
-    user_id: Annotated[str, Form(...)],
-    files: Annotated[list[UploadFile], File(...)],
-):
-    saved_paths = []
-    for file in files:
-        safe_filename = file.filename if file.filename else "fallback.jpg"
-        file_ext = safe_filename.split(".")[-1]
-        temp_name = f"{uuid.uuid4()}.{file_ext}"
-        temp_path = os.path.join(STORAGE_DIR, temp_name)
-
-        with open(temp_path, "wb") as f:
-            f.write(await file.read())
-        saved_paths.append(temp_path)
-
-        process_image.delay(user_id, temp_path)  # type: ignore[attr-defined]
-
-    return {
-        "message": "Images accepted. The Armor is being applied in the background.",
-        "files_queued": len(saved_paths),
-    }
-
-
 # --- ENDPOINT 2: THE SILENT FLARE (Receiver) ---
 @app.post("/api/radar/flag")
-async def radar_flag(payload: RadarPayload):
+async def radar_flag(payload: RadarPayload, _auth: dict = Depends(require_service_auth)):
     """
     Receives pings from the Chrome Extension and Python Scrapers.
     Queries pgvector natively. If matched, triggers the alert.
@@ -98,12 +72,14 @@ async def radar_flag(payload: RadarPayload):
 
 # --- ENDPOINT 3: THE LEGAL ARSENAL ---
 @app.post("/api/takedown/generate")
-async def generate_takedown(payload: TakedownPayload):
+async def generate_takedown(
+    payload: TakedownPayload,
+    auth_payload: dict = Depends(require_service_auth),
+):
     """
     Generates the specific legal weapon based on the threat type.
     """
-    # Note: We are trusting the payload.user_id here.
-    # TODO: Replace with JWT Auth token extraction later.
+    require_owned_user_id(payload.user_id, auth_payload)
 
     if payload.threat_type == "ncii":
         template = (

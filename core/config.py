@@ -20,6 +20,23 @@ POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", "5432"))
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
+API_KEY = os.getenv("AMOR_API_KEY", "")
+JWT_SECRET = os.getenv("AMOR_JWT_SECRET", "")
+JWT_ALGORITHM = os.getenv("AMOR_JWT_ALGORITHM", "HS256")
+CORS_ALLOWED_ORIGINS = tuple(
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+    if origin.strip()
+)
+
+MAX_UPLOAD_FILES = int(os.getenv("MAX_UPLOAD_FILES", "5"))
+MAX_UPLOAD_BYTES_PER_FILE = int(os.getenv("MAX_UPLOAD_BYTES_PER_FILE", str(10 * 1024 * 1024)))
+ALLOWED_IMAGE_EXTENSIONS = tuple(
+    ext.strip().lower()
+    for ext in os.getenv("ALLOWED_IMAGE_EXTENSIONS", "jpg,jpeg,png,webp").split(",")
+    if ext.strip()
+)
+
 NOISE_EPSILON = float(os.getenv("NOISE_EPSILON", "0.04"))
 WATERMARK_BIT_LENGTH = int(os.getenv("WATERMARK_BIT_LENGTH", "32"))
 ARMOR_VALIDATION_MIN_QUALITY = int(os.getenv("ARMOR_VALIDATION_MIN_QUALITY", "75"))
