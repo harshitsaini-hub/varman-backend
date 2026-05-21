@@ -1,51 +1,39 @@
-import logging
 import os
 import uuid
-from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 
+from celery_worker import process_image
 from core.config import STORAGE_DIR
-from services.image_pipeline import process_image_file
+from core.security import require_owned_user_id, require_service_auth
+from core.uploads import save_upload_with_limits, validate_upload_count
 
-logger = logging.getLogger(__name__)
 router = APIRouter()
-
-
-def _safe_extension(filename: str | None) -> str:
-    suffix = Path(os.path.basename(filename or "fallback.jpg")).suffix.lower().lstrip(".")
-    return suffix or "jpg"
-
-
-def process_image_background(user_id: str, file_path: str) -> None:
-    try:
-        result = process_image_file(user_id=user_id, temp_file_path=file_path)
-        logger.info("AMOR background image processing completed: %s", result)
-    except Exception:
-        logger.exception("AMOR background image processing failed for %s", file_path)
 
 
 @router.post("/protect")
 async def protect_images(
-    background_tasks: BackgroundTasks,
     user_id: Annotated[str, Form()],
     files: Annotated[list[UploadFile], File()],
+    auth_payload: dict = Depends(require_service_auth),
 ):
+    require_owned_user_id(user_id, auth_payload)
+    validate_upload_count(files)
     saved_paths = []
 
     for file in files:
-        file_ext = _safe_extension(file.filename)
+        safe_filename = file.filename if file.filename else "fallback.jpg"
+        file_ext = safe_filename.split(".")[-1].lower()
         temp_name = f"{uuid.uuid4()}.{file_ext}"
         temp_path = os.path.join(STORAGE_DIR, temp_name)
 
-        with open(temp_path, "wb") as output_file:
-            output_file.write(await file.read())
+        await save_upload_with_limits(file, temp_path)
         saved_paths.append(temp_path)
 
-        background_tasks.add_task(process_image_background, user_id, temp_path)
+        process_image.delay(user_id, temp_path)  # type: ignore[attr-defined]
 
     return {
         "message": "Images accepted. The Armor is being applied in the background.",
-        "files_processing": len(saved_paths),
+        "files_queued": len(saved_paths),
     }

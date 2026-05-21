@@ -168,16 +168,26 @@ def get_all_phashes(db) -> list[str]:
 def lookup_phash_global(db, phash: str, threshold: int = 10) -> PhashMatch | None:
     cursor = db.cursor()
     try:
-        cursor.execute("SELECT id, user_id, phash, watermark_id FROM protected_images;")
-        for _row_id, user_id, stored_phash, watermark_id in cursor.fetchall():
-            if _hamming_distance(phash, stored_phash) <= threshold:
-                return PhashMatch(
-                    user_id=str(user_id),
-                    phash=phash,
-                    watermark_id=watermark_id,
-                    confidence_score=0.0,
-                    armored_image_path=None,
-                )
+        cursor.execute(
+            """
+            SELECT user_id, phash, watermark_id
+            FROM protected_images
+            WHERE bit_count((('x' || phash)::bit(64)) # (('x' || %s)::bit(64))) <= %s
+            ORDER BY bit_count((('x' || phash)::bit(64)) # (('x' || %s)::bit(64))) ASC
+            LIMIT 1;
+            """,
+            (phash, threshold, phash),
+        )
+        row = cursor.fetchone()
+        if row:
+            user_id, stored_phash, watermark_id = row
+            return PhashMatch(
+                user_id=str(user_id),
+                phash=stored_phash,
+                watermark_id=watermark_id,
+                confidence_score=0.0,
+                armored_image_path=None,
+            )
         return None
     finally:
         cursor.close()
