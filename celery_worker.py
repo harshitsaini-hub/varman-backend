@@ -7,7 +7,7 @@ from celery.schedules import crontab
 
 from config import REDIS_URL
 from db import get_db_session
-from services import bloom_service, db_service
+from services import bloom_service, db_service, notification_service
 from services.image_pipeline import process_image_file
 
 logger = logging.getLogger(__name__)
@@ -30,12 +30,15 @@ def rebuild_global_bloom():
     db = None
     try:
         db = get_db_session()
-        all_phashes = db_service.get_all_phashes(db)
-        bloom_data = bloom_service.build_global_bloom_filter(all_phashes)
+        phash_count = db_service.count_all_phashes(db)
+        bloom_data = bloom_service.build_global_bloom_filter_from_iterable(
+            db_service.iter_all_phashes(db),
+            capacity=phash_count,
+        )
         redis_client.set("global_bloom_filter", json.dumps(bloom_data), ex=90000)
         logger.info(
             "[BLOOM] Rebuilt. %s hashes. Salt: %s",
-            len(all_phashes),
+            phash_count,
             bloom_service.get_daily_salt(),
         )
     except Exception:
@@ -65,3 +68,20 @@ def process_image(self, user_id: str, temp_file_path: str):
     except Exception:
         logger.exception("[TASK] Pipeline error for user %s", user_id)
         raise
+
+
+@app.task(name="celery_worker.send_radar_alert")
+def send_radar_alert_task(
+    user_id: str,
+    suspect_url: str,
+    image_url: str,
+    platform: str,
+    context: str,
+) -> None:
+    notification_service.send_radar_alert(
+        user_id=user_id,
+        suspect_url=suspect_url,
+        image_url=image_url,
+        platform=platform,
+        context=context,
+    )

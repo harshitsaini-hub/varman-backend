@@ -2,8 +2,8 @@ import time
 
 import basc_py4chan
 
-from services import db_service, notification_service
-from utils.hashing import compute_phash_from_url
+from services import detection_service, notification_service
+from services.scrapers.db_context import scraper_db_session
 
 DANGER_BOARDS = ["b", "gif"]
 POLL_INTERVAL_SECONDS = 300
@@ -42,18 +42,18 @@ def start_watcher(db):
 
                         seen_post_ids.add(post_id)
 
-                        phash = compute_phash_from_url(file_url)
-                        if phash is None:
-                            continue
-
-                        match = db_service.lookup_phash_global(db, phash, threshold=10)
+                        with scraper_db_session(db) as session:
+                            match = detection_service.detect_suspect_image_url(session, file_url)
                         if match:
-                            notification_service.send_radar_alert(
+                            notification_service.queue_radar_alert(
                                 user_id=match.user_id,
                                 suspect_url=thread.url,
                                 image_url=file_url,
                                 platform="4chan",
-                                context=f"/{board_name}/ — Thread {getattr(thread, 'id', '?')}",
+                                context=(
+                                    f"/{board_name}/ — Thread {getattr(thread, 'id', '?')}; "
+                                    f"{detection_service.describe_match(match)}"
+                                ),
                             )
 
             if len(seen_post_ids) > 50000:

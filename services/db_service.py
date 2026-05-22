@@ -5,12 +5,29 @@ import psycopg2
 from pgvector.psycopg2 import register_vector
 
 from config import (
+    FACE_MATCH_DISTANCE_THRESHOLD,
+    PHASH_MATCH_THRESHOLD,
     POSTGRES_DB,
     POSTGRES_HOST,
     POSTGRES_PASSWORD,
     POSTGRES_PORT,
     POSTGRES_USER,
+    REGION_PHASH_MATCH_THRESHOLD,
 )
+from models.protected_image import (
+    CREATE_PROTECTED_IMAGE_HASHES_IMAGE_ID_INDEX_SQL,
+    CREATE_PROTECTED_IMAGE_HASHES_PHASH_INDEX_SQL,
+    CREATE_PROTECTED_IMAGE_HASHES_TABLE_SQL,
+    CREATE_PROTECTED_IMAGES_FACE_HNSW_INDEX_SQL,
+    CREATE_PROTECTED_IMAGES_PHASH_INDEX_SQL,
+    CREATE_PROTECTED_IMAGES_TABLE_SQL,
+)
+
+PHASH_UNION_SQL = """
+SELECT phash FROM protected_images
+UNION
+SELECT phash FROM protected_image_hashes
+"""
 
 DB_PARAMS = {
     "dbname": POSTGRES_DB,
@@ -31,6 +48,10 @@ class PhashMatch:
     watermark_id: str
     confidence_score: float
     armored_image_path: str | None = None
+    detection_method: str = "phash"
+    distance: float | None = None
+    suspect_hash_kind: str | None = None
+    matched_hash_kind: str | None = None
 
 
 # ── Connection ─────────────────────────────────────────────────────────────
@@ -46,21 +67,12 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS protected_images (
-            id SERIAL PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            phash TEXT NOT NULL,
-            watermark_id TEXT NOT NULL,
-            face_encoding vector(128),
-            armored_image_path TEXT,
-            validation_passed BOOLEAN NOT NULL DEFAULT FALSE,
-            compression_quality_tested INTEGER,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        """
-    )
+    cursor.execute(CREATE_PROTECTED_IMAGES_TABLE_SQL)
+    cursor.execute(CREATE_PROTECTED_IMAGE_HASHES_TABLE_SQL)
+    cursor.execute(CREATE_PROTECTED_IMAGES_PHASH_INDEX_SQL)
+    cursor.execute(CREATE_PROTECTED_IMAGE_HASHES_PHASH_INDEX_SQL)
+    cursor.execute(CREATE_PROTECTED_IMAGE_HASHES_IMAGE_ID_INDEX_SQL)
+    cursor.execute(CREATE_PROTECTED_IMAGES_FACE_HNSW_INDEX_SQL)
     conn.commit()
     cursor.close()
     conn.close()
@@ -119,6 +131,7 @@ def save_protected_image(
     armored_image_path: str | None = None,
     validation_passed: bool = True,
     compression_quality_tested: int | None = None,
+    commit: bool = True,
 ):
     cursor = db.cursor()
     try:
@@ -143,12 +156,60 @@ def save_protected_image(
         )
         result = cursor.fetchone()
         if result is None:
-            db.rollback()
+            if commit:
+                db.rollback()
             raise ValueError(f"Failed to insert image metadata for user: {user_id}")
-        db.commit()
+        if commit:
+            db.commit()
         new_id = result[0]
         print(f"[DATABASE] Secured image data for user: {user_id} (Row ID: {new_id})")
         return new_id
+    except Exception:
+        if commit:
+            db.rollback()
+        raise
+    finally:
+        cursor.close()
+
+
+def save_protected_image_hashes(
+    db,
+    protected_image_id: int,
+    phash_entries,
+    commit: bool = True,
+) -> None:
+    rows = []
+    seen: set[tuple[str, str]] = set()
+    for entry in phash_entries:
+        hash_kind = getattr(entry, "hash_kind", None)
+        phash = getattr(entry, "phash", None)
+        if not hash_kind or not phash:
+            continue
+        key = (str(hash_kind), str(phash))
+        if key in seen:
+            continue
+        rows.append((protected_image_id, str(hash_kind), str(phash)))
+        seen.add(key)
+
+    if not rows:
+        return
+
+    cursor = db.cursor()
+    try:
+        cursor.executemany(
+            """
+            INSERT INTO protected_image_hashes (protected_image_id, hash_kind, phash)
+            VALUES (%s, %s, %s)
+            ON CONFLICT DO NOTHING;
+            """,
+            rows,
+        )
+        if commit:
+            db.commit()
+    except Exception:
+        if commit:
+            db.rollback()
+        raise
     finally:
         cursor.close()
 
@@ -159,34 +220,179 @@ def save_protected_image(
 def get_all_phashes(db) -> list[str]:
     cursor = db.cursor()
     try:
-        cursor.execute("SELECT phash FROM protected_images;")
+        cursor.execute(PHASH_UNION_SQL)
         return [row[0] for row in cursor.fetchall()]
     finally:
         cursor.close()
 
 
-def lookup_phash_global(db, phash: str, threshold: int = 10) -> PhashMatch | None:
+def count_all_phashes(db) -> int:
+    cursor = db.cursor()
+    try:
+        cursor.execute(f"SELECT COUNT(*) FROM ({PHASH_UNION_SQL}) AS all_phashes;")
+        row = cursor.fetchone()
+        return int(row[0]) if row else 0
+    finally:
+        cursor.close()
+
+
+def iter_all_phashes(db, batch_size: int = 1000):
+    cursor = db.cursor(name="amor_phash_stream")
+    cursor.itersize = batch_size
+    try:
+        cursor.execute(PHASH_UNION_SQL)
+        while True:
+            rows = cursor.fetchmany(batch_size)
+            if not rows:
+                break
+            for row in rows:
+                yield row[0]
+    finally:
+        cursor.close()
+
+
+def lookup_phash_global(
+    db,
+    phash: str,
+    threshold: int = PHASH_MATCH_THRESHOLD,
+) -> PhashMatch | None:
+    return lookup_phash_candidates_global(db, [("full", phash)], threshold=threshold)
+
+
+def lookup_phash_candidates_global(
+    db,
+    phash_candidates: list[tuple[str, str]],
+    threshold: int = REGION_PHASH_MATCH_THRESHOLD,
+) -> PhashMatch | None:
+    if not phash_candidates:
+        return None
+
+    best_match: PhashMatch | None = None
+    for suspect_hash_kind, suspect_phash in phash_candidates:
+        match = _lookup_single_phash_candidate(
+            db,
+            suspect_phash=str(suspect_phash),
+            suspect_hash_kind=str(suspect_hash_kind),
+            threshold=threshold,
+        )
+        if match is None:
+            continue
+        if best_match is None or (match.distance or 65) < (best_match.distance or 65):
+            best_match = match
+    return best_match
+
+
+def _lookup_single_phash_candidate(
+    db,
+    *,
+    suspect_phash: str,
+    suspect_hash_kind: str,
+    threshold: int,
+) -> PhashMatch | None:
     cursor = db.cursor()
     try:
         cursor.execute(
             """
-            SELECT user_id, phash, watermark_id
-            FROM protected_images
-            WHERE bit_count((('x' || phash)::bit(64)) # (('x' || %s)::bit(64))) <= %s
-            ORDER BY bit_count((('x' || phash)::bit(64)) # (('x' || %s)::bit(64))) ASC
+            WITH stored_hashes AS (
+                SELECT
+                    id AS protected_image_id,
+                    user_id,
+                    phash AS original_phash,
+                    watermark_id,
+                    armored_image_path,
+                    'full' AS hash_kind,
+                    phash AS match_phash
+                FROM protected_images
+                UNION ALL
+                SELECT
+                    pi.id AS protected_image_id,
+                    pi.user_id,
+                    pi.phash AS original_phash,
+                    pi.watermark_id,
+                    pi.armored_image_path,
+                    pih.hash_kind,
+                    pih.phash AS match_phash
+                FROM protected_image_hashes pih
+                JOIN protected_images pi ON pi.id = pih.protected_image_id
+            )
+            SELECT
+                user_id,
+                original_phash,
+                watermark_id,
+                armored_image_path,
+                hash_kind,
+                bit_count((('x' || match_phash)::bit(64)) # (('x' || %s)::bit(64))) AS distance
+            FROM stored_hashes
+            WHERE bit_count((('x' || match_phash)::bit(64)) # (('x' || %s)::bit(64))) <= %s
+            ORDER BY distance ASC
             LIMIT 1;
             """,
-            (phash, threshold, phash),
+            (suspect_phash, suspect_phash, threshold),
         )
         row = cursor.fetchone()
         if row:
-            user_id, stored_phash, watermark_id = row
+            (
+                user_id,
+                stored_phash,
+                watermark_id,
+                armored_image_path,
+                matched_hash_kind,
+                distance,
+            ) = row
             return PhashMatch(
                 user_id=str(user_id),
                 phash=stored_phash,
                 watermark_id=watermark_id,
-                confidence_score=0.0,
-                armored_image_path=None,
+                confidence_score=max(0.0, 1.0 - float(distance) / 64.0),
+                armored_image_path=armored_image_path,
+                detection_method="phash",
+                distance=float(distance),
+                suspect_hash_kind=suspect_hash_kind,
+                matched_hash_kind=matched_hash_kind,
+            )
+        return None
+    finally:
+        cursor.close()
+
+
+def lookup_face_global(
+    db,
+    face_encoding: np.ndarray | list[float],
+    threshold: float = FACE_MATCH_DISTANCE_THRESHOLD,
+) -> PhashMatch | None:
+    vector = _coerce_face_encoding(face_encoding)
+    if vector is None:
+        return None
+
+    cursor = db.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT
+                user_id,
+                phash,
+                watermark_id,
+                armored_image_path,
+                face_encoding <-> %s AS distance
+            FROM protected_images
+            WHERE face_encoding IS NOT NULL
+              AND face_encoding <-> %s <= %s
+            ORDER BY face_encoding <-> %s ASC
+            LIMIT 1;
+            """,
+            (vector, vector, threshold, vector),
+        )
+        row = cursor.fetchone()
+        if row:
+            user_id, stored_phash, watermark_id, armored_image_path, distance = row
+            return PhashMatch(
+                user_id=str(user_id),
+                phash=stored_phash,
+                watermark_id=watermark_id,
+                confidence_score=max(0.0, 1.0 - float(distance) / threshold),
+                armored_image_path=armored_image_path,
+                detection_method="face",
+                distance=float(distance),
             )
         return None
     finally:

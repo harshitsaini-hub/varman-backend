@@ -9,7 +9,7 @@ from PIL import Image
 from core.config import TEMP_STORAGE_PATH
 from services import amor_service, db_service, notification_service
 from utils.face import extract_face_encoding
-from utils.hashing import compute_phash
+from utils.hashing import compute_phash, compute_phash_candidates
 
 
 def process_image_file(
@@ -35,6 +35,7 @@ def process_image_file(
         image = Image.open(temp_file_path).convert("RGB")
         image_array = np.array(image)
         phash = compute_phash(image_array)
+        phash_candidates = compute_phash_candidates(image_array)
         face_vector = extract_face_encoding(image_array)
 
         watermark_id = str(uuid.uuid4())
@@ -59,7 +60,7 @@ def process_image_file(
         if db is None:
             db = db_service.get_db_connection()
 
-        db_service.save_protected_image(
+        protected_image_id = db_service.save_protected_image(
             db=db,
             user_id=str(user_id),
             phash=phash,
@@ -68,7 +69,15 @@ def process_image_file(
             armored_image_path=armored_output_path,
             validation_passed=validation_report["passed"],
             compression_quality_tested=validation_report["compression_quality_tested"],
+            commit=False,
         )
+        db_service.save_protected_image_hashes(
+            db,
+            protected_image_id,
+            phash_candidates,
+            commit=False,
+        )
+        db.commit()
 
         if delete_original:
             safe_delete(temp_file_path)
@@ -86,6 +95,8 @@ def process_image_file(
             "armored_path": armored_output_path,
         }
     except Exception:
+        if db is not None:
+            _safe_rollback(db)
         if delete_original:
             safe_delete(temp_file_path)
         if armored_output_path:
@@ -115,4 +126,11 @@ def safe_delete(path: str | None) -> None:
         if path and os.path.exists(path):
             os.remove(path)
     except OSError:
+        pass
+
+
+def _safe_rollback(db: Any) -> None:
+    try:
+        db.rollback()
+    except Exception:
         pass

@@ -1,7 +1,7 @@
 import praw
 
-from services import db_service, notification_service
-from utils.hashing import compute_phash_from_url
+from services import detection_service, notification_service
+from services.scrapers.db_context import scraper_db_session
 
 DANGER_SUBREDDITS = [
     "SFWdeepfakes",
@@ -20,18 +20,18 @@ def start_watcher(reddit: praw.Reddit, db):
             if not submission.url.lower().endswith((".jpg", ".jpeg", ".png", ".webp", ".gif")):
                 continue
 
-            phash = compute_phash_from_url(submission.url)
-            if phash is None:
-                continue
-
-            match = db_service.lookup_phash_global(db, phash, threshold=10)
+            with scraper_db_session(db) as session:
+                match = detection_service.detect_suspect_image_url(session, submission.url)
             if match:
-                notification_service.send_radar_alert(
+                notification_service.queue_radar_alert(
                     user_id=match.user_id,
                     suspect_url=f"https://reddit.com{submission.permalink}",
                     image_url=submission.url,
                     platform="Reddit",
-                    context=f"Posted in r/{submission.subreddit.display_name}",
+                    context=(
+                        f"Posted in r/{submission.subreddit.display_name}; "
+                        f"{detection_service.describe_match(match)}"
+                    ),
                 )
                 print(f"[REDDIT HIT] Match found. User {match.user_id} notified.")
         except Exception as e:

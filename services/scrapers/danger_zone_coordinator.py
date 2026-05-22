@@ -1,9 +1,13 @@
 import asyncio
+import logging
 import threading
 
 from telethon import TelegramClient
 
+from services import db_service
 from services.scrapers import fourchan_scraper, reddit_scraper, telegram_scraper
+
+logger = logging.getLogger(__name__)
 
 
 def launch_all_danger_zone_watchers(
@@ -13,24 +17,29 @@ def launch_all_danger_zone_watchers(
     tg_api_id: int,
     tg_api_hash: str,
 ):
+    db_source = db if callable(db) else db_service.get_db_connection
+    if not callable(db):
+        logger.warning(
+            "[DANGER ZONE] Ignoring shared DB connection; watchers will open per-event sessions."
+        )
 
     reddit_thread = threading.Thread(
         target=reddit_scraper.start_watcher,
-        args=(reddit_client, db),
+        args=(reddit_client, db_source),
         daemon=True,
         name="reddit-watcher",
     )
 
     fourchan_thread = threading.Thread(
         target=fourchan_scraper.start_watcher,
-        args=(db,),
+        args=(db_source,),
         daemon=True,
         name="fourchan-watcher",
     )
 
     telegram_thread = threading.Thread(
         target=_run_telegram_async,
-        args=(tg_session_name, tg_api_id, tg_api_hash, db),
+        args=(tg_session_name, tg_api_id, tg_api_hash, db_source),
         daemon=True,
         name="telegram-watcher",
     )

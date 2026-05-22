@@ -2,9 +2,12 @@ import base64
 import datetime
 import hashlib
 import math
+from collections.abc import Iterable
 
 import mmh3
 from bitarray import bitarray
+
+DEFAULT_ERROR_RATE = 0.001
 
 
 def get_daily_salt() -> str:
@@ -53,10 +56,15 @@ def build_global_bloom_filter(all_phashes: list[str]) -> dict:
     """
     Called daily to build the cross-platform filter for the Chrome Extension.
     """
-    salt = get_daily_salt()
-    bloom = CrossPlatformBloomFilter(capacity=len(all_phashes), error_rate=0.001)
+    return build_global_bloom_filter_from_iterable(all_phashes, capacity=len(all_phashes))
 
-    for phash in all_phashes:
+
+def build_global_bloom_filter_from_iterable(phashes: Iterable[str], capacity: int) -> dict:
+    """Build a salted Bloom filter without requiring all pHashes in memory."""
+    salt = get_daily_salt()
+    bloom = CrossPlatformBloomFilter(capacity=capacity, error_rate=DEFAULT_ERROR_RATE)
+
+    for phash in phashes:
         salted = salt_phash(phash, salt)
         bloom.add(salted)
 

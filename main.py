@@ -2,13 +2,18 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api.routes.protect import router as protect_router
-from core.config import CORS_ALLOWED_ORIGINS
+from core.config import CORS_ALLOWED_ORIGINS, PHASH_MATCH_THRESHOLD, REGION_PHASH_MATCH_THRESHOLD
 from core.security import require_owned_user_id, require_service_auth
-from services.db_service import get_db_connection, init_db, lookup_phash_global
-from services.notification_service import send_radar_alert
+from services import detection_service, notification_service
+from services.db_service import (
+    get_db_connection,
+    init_db,
+    lookup_phash_candidates_global,
+    lookup_phash_global,
+)
 
 app = FastAPI(title="Project AMOR API")
 
@@ -26,6 +31,7 @@ class RadarPayload(BaseModel):
     suspect_hash: str
     source_url: str
     platform: str
+    candidate_hashes: list[str] = Field(default_factory=list)
 
 
 class TakedownPayload(BaseModel):
@@ -52,19 +58,40 @@ async def radar_flag(payload: RadarPayload, _auth: ServiceAuth):
     """
     db = get_db_connection()
     try:
-        # Using a threshold of 10 for the XOR bitwise comparison
-        match = lookup_phash_global(db, payload.suspect_hash, threshold=10)
+        match = lookup_phash_global(
+            db,
+            payload.suspect_hash,
+            threshold=PHASH_MATCH_THRESHOLD,
+        )
+
+        if match is None and payload.candidate_hashes:
+            candidates = [
+                (f"client_candidate_{index}", candidate_hash)
+                for index, candidate_hash in enumerate(payload.candidate_hashes)
+            ]
+            match = lookup_phash_candidates_global(
+                db,
+                candidates,
+                threshold=REGION_PHASH_MATCH_THRESHOLD,
+            )
+            if match:
+                match.detection_method = "region_phash"
 
         if match:
-            # Trigger the email/alert to the user (currently logs via notification_service)
-            send_radar_alert(
+            alert_queued = notification_service.queue_radar_alert(
                 user_id=match.user_id,
                 suspect_url=payload.source_url,
                 image_url="[Radar Local Image]",
                 platform=payload.platform,
-                context="Detected via AMOR Radar Network",
+                context=(
+                    "Detected via AMOR Radar Network; "
+                    f"{detection_service.describe_match(match)}"
+                ),
             )
-            return {"status": "match_found", "action": "user_notified"}
+            return {
+                "status": "match_found",
+                "action": "user_notification_queued" if alert_queued else "alert_queue_failed",
+            }
 
         return {"status": "clean"}
     except Exception as e:

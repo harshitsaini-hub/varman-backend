@@ -1,7 +1,7 @@
 # Docker Usage
 
 AMOR already has a `Dockerfile` and `docker-compose.yml` for the API, Celery worker,
-Postgres with pgvector, and Redis.
+Celery beat scheduler, Postgres with pgvector, and Redis.
 
 ## 1. Start Docker Desktop
 
@@ -46,7 +46,7 @@ API: `http://localhost:8000`
 
 Interactive API docs: `http://localhost:8000/docs`
 
-The API and worker both wait for healthy Postgres and Redis before starting.
+The API, worker, and beat scheduler all wait for healthy Postgres and Redis before starting.
 
 ## 5. Useful commands
 
@@ -54,6 +54,7 @@ The API and worker both wait for healthy Postgres and Redis before starting.
 docker compose ps
 docker compose logs -f api
 docker compose logs -f worker
+docker compose logs -f beat
 docker compose up -d db redis
 docker compose down
 ```
