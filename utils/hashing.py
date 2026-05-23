@@ -1,5 +1,7 @@
 import io
 import logging
+import httpx
+import logging
 import urllib.request
 from dataclasses import dataclass
 
@@ -48,11 +50,16 @@ def compute_phash_from_url(url: str, timeout: int = 10) -> str | None:
 
 
 def read_image_bytes_from_url(url: str, timeout: int = 10) -> bytes | None:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as response:
-            return response.read()
-    except OSError:
-        logger.warning("Unable to fetch image URL: %s", url)
+        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+            response = client.get(url, headers=headers)
+            response.raise_for_status()
+            return response.content
+    except httpx.RequestError as exc:
+        logger.warning(f"Unable to fetch image URL: {url} - {exc}")
         return None
 
 

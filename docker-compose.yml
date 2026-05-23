@@ -42,26 +42,8 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  beat:
-    build: .
-    container_name: amor-beat
-    command: celery -A celery_worker.app beat --loglevel=info
-    environment:
-      POSTGRES_HOST: db
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
-      POSTGRES_DB: amor_db
-      REDIS_URL: redis://redis:6379/0
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-
   db:
-    image: ankane/pgvector@sha256:cd74872a7e39b411f8be4f4c7f2cc773d4cf3c98a0838a90ca963611f4d16f6e
+    image: pgvector/pgvector:pg15
     container_name: amor-postgres
     environment:
       POSTGRES_USER: postgres
