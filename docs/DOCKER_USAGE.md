@@ -23,6 +23,8 @@ Minimum required values:
 POSTGRES_PASSWORD=your-strong-db-password
 AMOR_API_KEY=your-private-api-key
 CORS_ALLOWED_ORIGINS=http://localhost:3000
+# Optional for AMOR Radar Chrome extension requests:
+CORS_ALLOWED_ORIGIN_REGEX=^chrome-extension://.*$
 ```
 
 The Compose file intentionally refuses to start without `POSTGRES_PASSWORD` and

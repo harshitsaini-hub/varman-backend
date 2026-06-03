@@ -1,10 +1,8 @@
 import io
 import logging
-import httpx
-import logging
-import urllib.request
 from dataclasses import dataclass
 
+import httpx
 import imagehash
 import numpy as np
 from PIL import Image, UnidentifiedImageError
@@ -51,7 +49,10 @@ def compute_phash_from_url(url: str, timeout: int = 10) -> str | None:
 
 def read_image_bytes_from_url(url: str, timeout: int = 10) -> bytes | None:
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
     }
     try:
         with httpx.Client(timeout=timeout, follow_redirects=True) as client:

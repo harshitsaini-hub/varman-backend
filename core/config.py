@@ -28,6 +28,10 @@ CORS_ALLOWED_ORIGINS = tuple(
     for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
     if origin.strip()
 )
+CORS_ALLOWED_ORIGIN_REGEX = os.getenv(
+    "CORS_ALLOWED_ORIGIN_REGEX",
+    r"^chrome-extension://.*$",
+).strip()
 
 MAX_UPLOAD_FILES = int(os.getenv("MAX_UPLOAD_FILES", "5"))
 MAX_UPLOAD_BYTES_PER_FILE = int(os.getenv("MAX_UPLOAD_BYTES_PER_FILE", str(10 * 1024 * 1024)))

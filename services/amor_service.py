@@ -1,8 +1,11 @@
 import io
+
 import numpy as np
-from PIL import Image
 from blind_watermark import WaterMark
+from PIL import Image
+
 from config import ARMOR_VALIDATION_MIN_QUALITY
+
 
 def _pad_for_dwt(image_array: np.ndarray) -> tuple[np.ndarray, int, int]:
     h, w = image_array.shape[:2]
@@ -61,7 +64,11 @@ def validate_armor(armored_array: np.ndarray, watermark_id: str) -> dict:
         "watermark_id": watermark_id,
         "recovered_prefix": recovered[:8] if recovered else "",
         "compression_quality_tested": ARMOR_VALIDATION_MIN_QUALITY,
-        "warning": None if survived else "Watermark did not survive compression simulation. Do not deliver.",
+        "warning": (
+            None
+            if survived
+            else "Watermark did not survive compression simulation. Do not deliver."
+        ),
     }
 
 def armor_image(image_array: np.ndarray, watermark_id: str) -> tuple[np.ndarray, dict]:

@@ -5,7 +5,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from api.routes.protect import router as protect_router
-from core.config import CORS_ALLOWED_ORIGINS, PHASH_MATCH_THRESHOLD, REGION_PHASH_MATCH_THRESHOLD
+from core.config import (
+    CORS_ALLOWED_ORIGIN_REGEX,
+    CORS_ALLOWED_ORIGINS,
+    PHASH_MATCH_THRESHOLD,
+    REGION_PHASH_MATCH_THRESHOLD,
+)
 from core.security import require_owned_user_id, require_service_auth
 from services import detection_service, notification_service
 from services.db_service import (
@@ -20,18 +25,20 @@ app = FastAPI(title="Project AMOR API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(CORS_ALLOWED_ORIGINS),
+    allow_origin_regex=CORS_ALLOWED_ORIGIN_REGEX or None,
     allow_methods=["POST", "GET", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-API-Key"],
 )
 app.include_router(protect_router)
 ServiceAuth = Annotated[dict, Depends(require_service_auth)]
+PhashHex = Annotated[str, Field(min_length=16, max_length=16, pattern=r"^[0-9a-fA-F]{16}$")]
 
 # --- PYDANTIC MODELS (Strict Data Validation) ---
 class RadarPayload(BaseModel):
-    suspect_hash: str
+    suspect_hash: PhashHex
     source_url: str
     platform: str
-    candidate_hashes: list[str] = Field(default_factory=list)
+    candidate_hashes: list[PhashHex] = Field(default_factory=list)
 
 
 class TakedownPayload(BaseModel):
