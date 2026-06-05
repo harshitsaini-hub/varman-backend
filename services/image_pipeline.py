@@ -77,7 +77,7 @@ def process_image_file(
             phash_candidates,
             commit=False,
         )
-        db.commit()
+        db.commit()  # type: ignore
 
         if delete_original:
             safe_delete(temp_file_path)
