@@ -1,12 +1,13 @@
+# Varman Backend
+
 __pycache__/
 *.py[cod]
-*$py.class
-
 .env
 .venv/
 venv/
-
 storage/
-database/
-
-AMOR.txt
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/

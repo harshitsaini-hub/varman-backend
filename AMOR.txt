@@ -1,0 +1,106 @@
+Context: Project AMOR (Anti-Manipulation Online Response)
+Please load this architecture into your active memory. We are building AMOR, a decentralized, proactive defense system to protect user images from unauthorized generative AI alteration and deepfakes.
+
+STRICT RULES FOR THIS PROJECT:
+
+Language: Python exclusively for the backend. DO NOT provide Java code.
+
+Architecture: Keep solutions simple. No over-engineering.
+
+Interaction: Do not agree with me by default. Your first instinct should be to stress-test my ideas to find vulnerabilities. No empty compliments.
+
+1. The Tech Stack
+
+Frontend: React (Dashboard for uploads, viewing vault, and triggering legal actions).
+
+Backend Receptionist: FastAPI (Python).
+
+Message Broker: Redis (Docker).
+
+The Heavy Lifter: Celery Workers (Python).
+
+The Vault: PostgreSQL with pgvector extension (Docker).
+
+The Radar: Chrome Extension (JavaScript/MutationObserver) & Python Scrapers (PRAW, Telethon, basc-py4chan).
+
+2. The Backend Protection Pipeline (Working State)
+
+Upload: User uploads an image via React.
+
+Queue: FastAPI saves the file temporarily and pushes a ticket to Redis (.delay()), responding to the user instantly.
+
+Armor & Validate: Celery picks up the ticket, calculates the real pHash, applies DCT Frequency Domain Adversarial Noise (EPSILON = 0.04), and injects an invisible dwtDct watermark. It then runs a JPEG compression simulation to validate the armor survived.
+
+Memory: Celery extracts the 128-dimension face encoding array and saves the User ID, pHash, Watermark ID, and Face Vector into a single row in the unified pgvector database.
+
+Delivery & Cleanup: Celery deletes all temporary files to prevent server crashes. User downloads the Armored image.
+
+3. The Mesh Network & Radar
+
+The Hivemind: When User A installs the AMOR extension, it downloads a lightweight Bloom Filter of everyone’s protected pHashes, protected by a Daily Rotating Salt to prevent membership tracking.
+
+Client-Side Execution: The Chrome Extension observes the DOM (e.g., Instagram feed). It computes the pHash of visible images locally on the user's machine.
+
+The Silent Flare: It checks the local hash against the Bloom Filter. Only if there is a match does it ping the FastAPI backend with the suspect hash and URL.
+
+4. The Danger Zone Bots (Free OSINT)
+
+Execution: Three Python scripts run on the backend using PRAW (Reddit), Telethon (Telegram), and basc-py4chan (4chan).
+
+Flow: These bots sit in specific degenerate communities (e.g., r/SFWdeepfakes, /b/ boards). The second an image is uploaded, the bot hashes it and checks the pgvector database.
+
+5. The Action Pipeline (Manual Trigger)
+
+Alert: When the Radar or Scrapers spot a match, the backend emails the victim: "AMOR spotted your image at [URL]."
+
+Review: The user logs into the React Dashboard. To avoid legal liability, AMOR does not automatically issue DMCAs.
+
+Scenario A (General Identity Theft): User clicks "Generate Takedown." AMOR generates a standard DMCA Notice, explicitly highlighting the cryptographic proof (the watermark ID).
+
+Scenario B (Intimate / Explicit Deepfake): AMOR generates an NCII specific template emphasizing "Platform Safety Guidelines." The dashboard displays the pre-filled text with a direct link to the platform's NCII Portal so the user can submit it safely.
+
+6. Architecture Tree (old)
+amor-backend/
+├── services/ (DB logic, Noise logic, Recognition)
+├── utils/ (Helper tools, validation)
+├── storage/ (Temporary Godown)
+├── config.py (Environment variables)
+├── celery_worker.py (Background processing)
+├── main.py (FastAPI Endpoints)
+└── requirements.txt (Dependencies)
+
+7. Architecture Tree (new)
+amor-backend/
+├── api/                         # FastAPI HTTP route modules
+│   └── routes/protect.py        # /protect upload endpoint
+├── core/                        # Core config/shared settings
+│   └── config.py                # Env-driven storage, DB, Redis, armor, Telegram config
+├── models/                      # DB schema/model declarations
+│   └── protected_image.py       # protected_images table DDL
+├── services/                    # AI/image pipeline, DB helpers, scrapers, business logic
+│   ├── amor_service.py
+│   ├── bloom_service.py
+│   ├── db_service.py
+│   ├── image_pipeline.py
+│   ├── noise_service.py
+│   ├── notification_service.py
+│   └── scrapers/
+├── utils/                       # Helper utilities
+├── tests/                       # Pytest checks
+├── main.py                      # FastAPI app setup
+├── celery_worker.py             # Celery task entrypoints
+├── config.py                    # Compatibility shim to core.config
+├── db.py                        # Compatibility DB session helper
+├── docker-compose.yml
+├── Dockerfile
+├── pyproject.toml
+└── requirements.txt
+
+Security + Reliability remediation status (2026-05-21):
+- DONE (High): Added auth gates (API key or JWT), ownership enforcement for user-specific operations, and restricted CORS allowlist.
+- DONE (High): Added upload guardrails for file count, allowed extension types, and per-file byte limits with streamed writes.
+- DONE (High): Hardened Docker defaults by requiring runtime secrets, removing DB/Redis published ports, and pinning pgvector image digest.
+- DONE (Medium): Removed /protect split-brain implementation by registering and using only `api.routes.protect.router` with Celery enqueue semantics.
+- DONE (Medium): Added dedicated Celery worker service to docker-compose so queued jobs process in default stack runs.
+- OPEN (Medium): Scraper daemon lifecycle still needs coordinated shutdown/backoff strategy across Reddit/4chan/Telegram watchers.
+- DONE (Medium): Reworked `lookup_phash_global` to execute hamming-distance matching in PostgreSQL instead of pulling all hashes into Python.
