@@ -62,7 +62,12 @@ async def get_current_user(
         logger.debug("JWT validation failed: %s", e)
         raise credentials_exception
 
-    stmt = select(User).where(User.id == user_id)
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise credentials_exception
+
+    stmt = select(User).where(User.id == user_uuid)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
     

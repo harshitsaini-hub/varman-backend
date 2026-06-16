@@ -67,13 +67,13 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # ── Routers (Phase 2-4 will populate these) ────────────────────────
+    # ── Routers ─────────────────────────────────────────────────────────
     from app.auth.router import router as auth_router
-    # from app.routes.images import router as images_router
-    # from app.routes.analytics import router as analytics_router
+    from app.routes.images import router as images_router
+    from app.routes.analytics import router as analytics_router
     app.include_router(auth_router, prefix="/api/auth", tags=["Auth"])
-    # app.include_router(images_router, prefix="/api/images", tags=["Images"])
-    # app.include_router(analytics_router, prefix="/api/analytics", tags=["Analytics"])
+    app.include_router(images_router, prefix="/api/images", tags=["Images"])
+    app.include_router(analytics_router, prefix="/api/analytics", tags=["Analytics"])
 
     # ── Health check ───────────────────────────────────────────────────
     @app.get("/health", tags=["System"])
