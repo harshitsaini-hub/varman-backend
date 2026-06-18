@@ -188,7 +188,7 @@ async def upload_images(
             _run_protection_task(
                 image_id=record.id,
                 original_path=record.original_path,
-                protected_path=os.path.join(user_dir, f"{record.id}_protected.{exit}"),
+                protected_path=os.path.join(user_dir, f"{record.id}_protected.{record.original_path.rsplit('.', 1)[-1]}"),
                 watermark_id=record.watermark_id,
                 watermark_enabled=record.watermark_enabled,
                 strength=record.protection_strength,
@@ -262,7 +262,7 @@ async def download_protected_image(
 
     if not img:
         raise HTTPException(status_code=404, detail="Image not found")
-    if img.status != "completed":
+    if img.status not in ["completed", "failed"]:
         raise HTTPException(status_code=409, detail=f"Image is still '{img.status}'")
     if not img.protected_path or not os.path.exists(img.protected_path):
         raise HTTPException(status_code=404, detail="Protected file missing from disk")

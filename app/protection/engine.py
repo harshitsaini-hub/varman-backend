@@ -56,8 +56,12 @@ def protect_image_pipeline(
     canvas_tensor = TF.to_tensor(Image.open(temp_canvas_path)).unsqueeze(0).to(device)
     
     # 3. Create Face Mask
-    face_mask = create_face_mask(temp_canvas_path, (settings.processing_resolution, settings.processing_resolution), device_str)
+    face_mask, num_faces = create_face_mask(temp_canvas_path, (settings.processing_resolution, settings.processing_resolution), device_str)
     
+    if num_faces > 0:
+        logger.info(f"🎯 Targeting {num_faces} detected face(s) for concentrated adversarial perturbation.")
+    else:
+        logger.info("No faces detected. Applying standard uniform perturbation across image.")    
     # 4. Initialize δ and Optimizer
     delta = torch.zeros_like(canvas_tensor, requires_grad=True, device=device)
     
@@ -128,5 +132,6 @@ def protect_image_pipeline(
         "ssim": ssim_score,
         "psnr": psnr_score,
         "epsilon_used": epsilon,
+        "faces_detected": num_faces,
         "status": "completed" if ssim_score >= settings.ssim_min_threshold else "failed"
     }

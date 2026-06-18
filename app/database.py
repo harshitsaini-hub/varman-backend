@@ -8,16 +8,20 @@ from sqlalchemy.ext.asyncio import (
 
 from app.config import settings
 
-# ── Engine ─────────────────────────────────────────────────────────────────
-# Connection-pooled async engine.  pool_size is intentionally small because
-# Varman is a portfolio/local project, not a 1000-RPS production service.
+is_postgres = settings.database_url.startswith("postgresql")
+
+engine_kwargs = {
+    "echo": False,
+    "pool_pre_ping": True,
+}
+
+if is_postgres:
+    engine_kwargs["pool_size"] = 5
+    engine_kwargs["max_overflow"] = 10
 
 engine = create_async_engine(
     settings.database_url,
-    echo=False,
-    pool_size=5,
-    max_overflow=10,
-    pool_pre_ping=True,
+    **engine_kwargs
 )
 
 # ── Session factory ────────────────────────────────────────────────────────
@@ -43,16 +47,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 # ── Startup helper ─────────────────────────────────────────────────────────
 
 async def init_db() -> None:
-    """Create all tables that don't exist yet.
-
-    Called once during the FastAPI lifespan startup.  Uses the ``Base``
-    metadata from ``app.models`` so every model registered there gets
-    its table created automatically.
-
-    If PostgreSQL is unreachable the server still boots — routes that
-    need the DB will fail at request time with a clear error, but the
-    health-check and frontend proxy keep working.
-    """
+    """Create all tables that don't exist yet and seed default user."""
     import logging
 
     logger = logging.getLogger("varman")
@@ -62,10 +57,31 @@ async def init_db() -> None:
 
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            
+        # Seed default operator
+        if settings.varman_admin_email and settings.varman_admin_password:
+            from app.auth import security
+            from app.models.user import User
+            from sqlalchemy import select
+
+            async with async_session() as session:
+                stmt = select(User).where(User.email == settings.varman_admin_email)
+                res = await session.execute(stmt)
+                if res.scalar_one_or_none() is None:
+                    logger.info("[STARTUP] Seeding default operator %s...", settings.varman_admin_display_name)
+                    hashed_pwd = security.get_password_hash(settings.varman_admin_password)
+                    default_user = User(
+                        email=settings.varman_admin_email,
+                        hashed_password=hashed_pwd,
+                        display_name=settings.varman_admin_display_name
+                    )
+                    session.add(default_user)
+                    await session.commit()
+                    logger.info("[STARTUP] Seeding complete.")
+        else:
+            logger.info("[STARTUP] Admin credentials not configured in environment. Skipping operator seeding.")
     except Exception as exc:
-        logger.warning(
-            "[STARTUP] Could not connect to PostgreSQL — tables not created. "
-            "DB-dependent routes will fail until the database is available. "
-            "Error: %s",
-            exc,
+        logger.exception(
+            "[STARTUP] Could not connect to PostgreSQL or initialize DB. "
+            "DB-dependent routes will fail until the database is available."
         )

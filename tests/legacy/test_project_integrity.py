@@ -1,3 +1,6 @@
+# type: ignore
+# pyright: reportMissingImports=false
+# pyright: reportUndefinedVariable=false
 import ast
 from pathlib import Path
 

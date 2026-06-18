@@ -1,3 +1,6 @@
+# type: ignore
+# pyright: reportMissingImports=false
+# pyright: reportUndefinedVariable=false
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient

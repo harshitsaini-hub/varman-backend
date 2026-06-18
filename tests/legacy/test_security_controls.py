@@ -1,3 +1,6 @@
+# type: ignore
+# pyright: reportMissingImports=false
+# pyright: reportUndefinedVariable=false
 from io import BytesIO
 
 import jwt

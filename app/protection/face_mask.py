@@ -18,10 +18,11 @@ def create_face_mask(image_path: str, output_size=(512, 512), device="cpu"):
     """
     image_cv = cv2.imread(image_path)
     if image_cv is None:
-        return torch.ones((1, 3, output_size[0], output_size[1]), device=device)
+        return torch.ones((1, 3, output_size[0], output_size[1]), device=device), 0
 
     h, w, _ = image_cv.shape
     mask = np.ones((h, w), dtype=np.float32) * 0.3  # Background weight
+    num_faces = 0
     
     try:
         base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
@@ -31,6 +32,7 @@ def create_face_mask(image_path: str, output_size=(512, 512), device="cpu"):
         mp_image = mp.Image.create_from_file(image_path)
         detection_result = detector.detect(mp_image)
         
+        num_faces = len(detection_result.detections)
         for detection in detection_result.detections:
             bbox = detection.bounding_box
             xmin = int(bbox.origin_x)
@@ -55,4 +57,4 @@ def create_face_mask(image_path: str, output_size=(512, 512), device="cpu"):
     mask_blurred = cv2.GaussianBlur(mask_resized, (21, 21), 0)
     
     mask_tensor = torch.from_numpy(mask_blurred).unsqueeze(0).unsqueeze(0).repeat(1, 3, 1, 1).to(device)
-    return mask_tensor
+    return mask_tensor, num_faces

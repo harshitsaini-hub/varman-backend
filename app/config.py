@@ -22,13 +22,18 @@ class Settings(BaseSettings):
     storage_dir: str = ""  # resolved in model_post_init
 
     # ── Database ───────────────────────────────────────────────────────────
-    database_url: str = "postgresql+asyncpg://postgres:password@localhost:5432/varman_db"
+    database_url: str = "sqlite+aiosqlite:///./varman.db"
 
     # ── Auth / JWT ─────────────────────────────────────────────────────────
     jwt_secret: str = ""  # MUST be set via env — startup guard will enforce
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 7
+    
+    # ── Admin Operator Seed Credentials ────────────────────────────────────
+    varman_admin_email: str = ""
+    varman_admin_password: str = ""
+    varman_admin_display_name: str = "Operator"
 
     # ── Upload Limits ──────────────────────────────────────────────────────
     max_upload_files: int = 10

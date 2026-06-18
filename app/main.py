@@ -33,6 +33,9 @@ async def lifespan(app: FastAPI):
         )
 
     # ── Database bootstrap ─────────────────────────────────────────────
+    logger.info("[STARTUP] Loaded settings.database_url: %s", settings.database_url)
+    logger.info("[STARTUP] Loaded settings.varman_admin_email: %s", settings.varman_admin_email)
+    logger.info("[STARTUP] Loaded settings.varman_admin_password length: %d", len(settings.varman_admin_password) if settings.varman_admin_password else 0)
     await init_db()
     logger.info("[STARTUP] Database tables initialised.")
     logger.info("[STARTUP] Storage dir: %s", settings.storage_dir)
