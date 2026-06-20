@@ -1,5 +1,3 @@
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.logging.Logger;
 
 /**
@@ -46,9 +44,10 @@ public class SurgicalProtectionEngine {
         logger.info(String.format("3. Running Surgical EoT loop for %d iterations using Adam optimizer (lr=%.2f)...", EOT_ITERATIONS, LEARNING_RATE));
         for (int i = 0; i < EOT_ITERATIONS; i++) {
             // Forward Pass
-            // apply spatial mask
-            // calculate dummy AI activation (sum of perturbed tensor * 0.5)
-            // compute loss = -dummy_ai_activation
+            // 1. apply spatial mask (x_adv = image + delta * face_mask)
+            // 2. apply simulated Instagram/Social Media JPEG compression (DiffJPEGProxy q~70-85)
+            // 3. calculate dummy AI activation (sum of perturbed & compressed tensor * 0.5)
+            // 4. compute loss = -dummy_ai_activation
             
             // Backward Pass
             // optimizer.step()

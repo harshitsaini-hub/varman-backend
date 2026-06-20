@@ -41,3 +41,33 @@ class SurrogateEnsemble:
         resnet_features = self.resnet_model(x_resized)
         
         return torch.cat([clip_features, resnet_features], dim=1)
+
+class FaceNetSurrogate:
+    def __init__(self, device="cpu"):
+        from facenet_pytorch import InceptionResnetV1
+        self.device = device
+        
+        # Load FaceNet (InceptionResnetV1 trained on VGGFace2)
+        self.facenet = InceptionResnetV1(pretrained='vggface2').eval().to(device)
+        
+        # Freeze model
+        for param in self.facenet.parameters():
+            param.requires_grad = False
+
+    def extract_features(self, x):
+        """
+        Extract identity embedding.
+        x: (B, C, H, W) tensor in [0, 1]
+        """
+        # FaceNet expects images normalized to [-1, 1] usually, but facenet-pytorch 
+        # normally handles 160x160. If we just pass the full image, it'll extract features 
+        # from whatever is in the center. We will resize it to 160x160 as expected by FaceNet.
+        # Actually facenet-pytorch mtcnn crops faces to 160x160.
+        # We will resize to 160x160.
+        x_resized = torch.nn.functional.interpolate(x, size=(160, 160), mode='bilinear', align_corners=False)
+        
+        # Normalization for VGGFace2 (mean=127.5/255=0.5, std=128/255=0.5) roughly
+        x_norm = (x_resized - 0.5) / 0.5
+        
+        return self.facenet(x_norm)
+

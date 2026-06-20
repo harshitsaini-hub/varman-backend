@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     ssim_min_threshold: float = 0.92
     watermark_length: int = 16
     device: str = "cpu"  # "cpu" or "cuda"
+    surrogate_mode: str = "facenet"  # "facenet" or "legacy" (CLIP+ResNet50)
 
     # ── CORS ───────────────────────────────────────────────────────────────
     cors_origins: str = "http://localhost:5173"
