@@ -71,3 +71,37 @@ class FaceNetSurrogate:
         
         return self.facenet(x_norm)
 
+class VAESurrogate:
+    def __init__(self, device="cpu"):
+        import os
+        from diffusers import AutoencoderKL
+        
+        self.device = device
+        
+        # Load from local directory
+        local_model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "models", "sd-vae-ft-mse")
+        
+        if not os.path.exists(local_model_path):
+            raise FileNotFoundError(f"VAE model not found at {local_model_path}. Please run download_vae.py first.")
+            
+        self.vae = AutoencoderKL.from_pretrained(local_model_path, local_files_only=True)
+        self.vae.eval().to(device)
+        
+        # Freeze model
+        for param in self.vae.parameters():
+            param.requires_grad = False
+
+    def extract_features(self, x):
+        """
+        Encode image into the Diffusion Latent Space.
+        x: (B, C, H, W) tensor in [0, 1]
+        """
+        # VAE usually expects images scaled to [-1, 1]
+        x_scaled = (x * 2.0) - 1.0
+        
+        # Resize to 512x512 (divisible by 8)
+        x_resized = torch.nn.functional.interpolate(x_scaled, size=(512, 512), mode='bilinear', align_corners=False)
+        
+        # Use the mean of the latent distribution as our embedding E(x)
+        latent = self.vae.encode(x_resized).latent_dist.mean
+        return latent

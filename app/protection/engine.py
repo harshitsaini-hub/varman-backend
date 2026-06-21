@@ -15,7 +15,7 @@ from app.protection.quality import compute_quality_metrics
 logger = logging.getLogger(__name__)
 
 # ── The Nectar Rule: absolute maximum pixel shift ──────────────────────
-EPSILON = 8.0 / 255.0
+EPSILON = 12.0 / 255.0
 
 
 def protect_image_pipeline(
@@ -84,21 +84,29 @@ def protect_image_pipeline(
         )
 
     # ── 4. Load surrogate ensemble ────────────────────────────────────────
-    if settings.surrogate_mode == "facenet":
+    if settings.surrogate_mode == "vae":
+        logger.info("Using VAESurrogate for Generative AI Latent Attack.")
+        from app.protection.surrogate_models import VAESurrogate
+        ensemble = VAESurrogate(device=device_str)
+    elif settings.surrogate_mode == "facenet":
         logger.info("Using FaceNetSurrogate for identity-aware gradients.")
         ensemble = FaceNetSurrogate(device=device_str)
     else:
         logger.info("Using legacy SurrogateEnsemble (CLIP+ResNet50).")
         ensemble = SurrogateEnsemble(device=device_str)
 
-    # Extract the ORIGINAL feature embedding — we want to MAXIMIZE
-    # distance from this so deepfake / face-swap models fail.
+    # Extract the ORIGINAL feature embedding
     with torch.no_grad():
         target_features = ensemble.extract_features(canvas_tensor)
+        
+        # Out-of-Distribution Clamping (only for VAE)
+        if settings.surrogate_mode == "vae":
+            # T = -E(x), but bounded to [-3, 3] to avoid the target AI clamping it
+            target_features = torch.clamp(-target_features, min=-3.0, max=3.0)
 
     # ── 5. Initialise delta & optimizer ───────────────────────────────
     delta = torch.zeros_like(canvas_tensor, requires_grad=True, device=device)
-    alpha = EPSILON / 10.0  # PGD step size
+    alpha = 0.5 / 255.0  # PGD step size
 
     iterations = settings.eot_iterations  # default 50
     logger.info(f"Running EoT loop for {iterations} iterations (eps={EPSILON:.6f})...")
@@ -116,17 +124,40 @@ def protect_image_pipeline(
         # Forward pass through surrogate ensemble
         adv_features = ensemble.extract_features(x_compressed)
 
-        # Loss: MAXIMISE feature distance from original embedding
-        # Negative MSE means the optimizer increases the distance
-        loss = -torch.nn.functional.mse_loss(adv_features, target_features)
+        # Loss Calculation
+        if settings.surrogate_mode == "vae":
+            # We want to MINIMIZE distance to the mathematical void
+            loss = torch.nn.functional.mse_loss(adv_features, target_features)
+        else:
+            # We want to MAXIMIZE distance from original embedding
+            loss = -torch.nn.functional.mse_loss(adv_features, target_features)
 
         # Backward
         loss.backward()
 
-        # FGSM-style signed gradient step
+        # FFT Spectral Gradient Filter & Update
         with torch.no_grad():
             if delta.grad is not None:
-                delta.data -= alpha * delta.grad.sign()
+                if settings.surrogate_mode == "vae":
+                    # Spectral Gradient Filter
+                    grads = delta.grad
+                    _, channels, height, width = grads.shape
+                    fft_grads = torch.fft.fftshift(torch.fft.fft2(grads))
+                    
+                    Y, X = torch.meshgrid(torch.linspace(-1, 1, height), torch.linspace(-1, 1, width), indexing='ij')
+                    radius = torch.sqrt(X**2 + Y**2).to(device)
+                    
+                    # Isolate mid-frequencies: Inner radius 0.1, outer radius 0.45
+                    mask = (radius >= 0.1) & (radius <= 0.45)
+                    mask = mask.unsqueeze(0).unsqueeze(0).float()
+                    
+                    filtered_fft_grads = fft_grads * mask
+                    robust_grads = torch.fft.ifft2(torch.fft.ifftshift(filtered_fft_grads)).real
+                else:
+                    robust_grads = delta.grad
+                
+                # Apply step
+                delta.data -= alpha * robust_grads.sign()
                 # ── The Nectar Rule: strict L-inf clamp ───────────
                 delta.data.clamp_(-EPSILON, EPSILON)
                 delta.grad.zero_()
