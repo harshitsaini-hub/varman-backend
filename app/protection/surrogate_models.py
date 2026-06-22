@@ -54,17 +54,25 @@ class FaceNetSurrogate:
         for param in self.facenet.parameters():
             param.requires_grad = False
 
-    def extract_features(self, x):
+    def extract_features(self, x, face_bbox=None):
         """
         Extract identity embedding.
         x: (B, C, H, W) tensor in [0, 1]
+        face_bbox: optional (x1, y1, x2, y2) in pixel coords to crop face first.
+                   If provided, crop the face region before resizing to 160x160.
+                   This matches what MTCNN does in real face-recognition pipelines.
         """
-        # FaceNet expects images normalized to [-1, 1] usually, but facenet-pytorch 
-        # normally handles 160x160. If we just pass the full image, it'll extract features 
-        # from whatever is in the center. We will resize it to 160x160 as expected by FaceNet.
-        # Actually facenet-pytorch mtcnn crops faces to 160x160.
-        # We will resize to 160x160.
-        x_resized = torch.nn.functional.interpolate(x, size=(160, 160), mode='bilinear', align_corners=False)
+        if face_bbox is not None:
+            x1, y1, x2, y2 = face_bbox
+            # Crop face region from the tensor (B, C, H, W)
+            x_face = x[:, :, y1:y2, x1:x2]
+        else:
+            x_face = x
+
+        # Resize to 160x160 as expected by FaceNet
+        x_resized = torch.nn.functional.interpolate(
+            x_face, size=(160, 160), mode='bilinear', align_corners=False
+        )
         
         # Normalization for VGGFace2 (mean=127.5/255=0.5, std=128/255=0.5) roughly
         x_norm = (x_resized - 0.5) / 0.5

@@ -46,8 +46,8 @@ class Settings(BaseSettings):
     epsilon_max: float = 0.06
     ssim_min_threshold: float = 0.92
     watermark_length: int = 16
-    device: str = "cpu"  # "cpu" or "cuda"
-    surrogate_mode: str = "vae"  # "vae", "facenet", or "legacy"
+    device: str = "cuda"  # "cpu" or "cuda"
+    surrogate_mode: str = "facenet"  # "vae", "facenet", or "legacy"
 
     # ── CORS ───────────────────────────────────────────────────────────────
     cors_origins: str = "http://localhost:5173"

@@ -50,7 +50,7 @@ def protect_image_pipeline(
     canvas = Image.new(
         "RGB",
         (settings.processing_resolution, settings.processing_resolution),
-        (0, 0, 0),
+        (0, 0, 0)  # type: ignore[arg-type]
     )
     offset_x = (settings.processing_resolution - new_w) // 2
     offset_y = (settings.processing_resolution - new_h) // 2
@@ -68,15 +68,18 @@ def protect_image_pipeline(
     canvas_tensor = TF.to_tensor(Image.open(temp_canvas_path)).unsqueeze(0).to(device)
 
     # ── 3. Spatial Mask (MediaPipe face detection) ────────────────────
-    face_mask, num_faces = create_face_mask(
+    face_mask, num_faces, face_bboxes = create_face_mask(
         temp_canvas_path,
         (settings.processing_resolution, settings.processing_resolution),
         device_str,
     )
 
+    # Use the first detected face bbox for FaceNet cropping
+    face_bbox = face_bboxes[0] if face_bboxes else None
+
     if num_faces > 0:
         logger.info(
-            f"Targeting {num_faces} detected face(s) for concentrated adversarial perturbation."
+            f"Targeting {num_faces} detected face(s). Primary face bbox: {face_bbox}"
         )
     else:
         logger.info(
@@ -96,8 +99,13 @@ def protect_image_pipeline(
         ensemble = SurrogateEnsemble(device=device_str)
 
     # Extract the ORIGINAL feature embedding
+    # For FaceNet: pass face_bbox so we embed only the face crop (matches MTCNN behavior)
+    extract_kwargs = {}
+    if settings.surrogate_mode == "facenet" and face_bbox is not None:
+        extract_kwargs["face_bbox"] = face_bbox
+
     with torch.no_grad():
-        target_features = ensemble.extract_features(canvas_tensor)
+        target_features = ensemble.extract_features(canvas_tensor, **extract_kwargs)
         
         # Out-of-Distribution Clamping (only for VAE)
         if settings.surrogate_mode == "vae":
@@ -121,15 +129,20 @@ def protect_image_pipeline(
         diff_jpeg = DiffJPEGProxy(quality=q).to(device)
         x_compressed = diff_jpeg(x_adv)
 
-        # Forward pass through surrogate ensemble
-        adv_features = ensemble.extract_features(x_compressed)
+        # Forward pass through surrogate ensemble (with face crop for FaceNet)
+        adv_features = ensemble.extract_features(x_compressed, **extract_kwargs)
 
         # Loss Calculation
         if settings.surrogate_mode == "vae":
             # We want to MINIMIZE distance to the mathematical void
             loss = torch.nn.functional.mse_loss(adv_features, target_features)
+        elif settings.surrogate_mode == "facenet":
+            # Cosine similarity loss: directly targets the metric face-recognition uses.
+            # Minimizing cosine similarity = maximizing cosine distance.
+            cos_sim = torch.nn.functional.cosine_similarity(adv_features, target_features)
+            loss = cos_sim.mean()  # minimize similarity → maximize distance
         else:
-            # We want to MAXIMIZE distance from original embedding
+            # Legacy: maximize MSE distance from original embedding
             loss = -torch.nn.functional.mse_loss(adv_features, target_features)
 
         # Backward
@@ -138,23 +151,22 @@ def protect_image_pipeline(
         # FFT Spectral Gradient Filter & Update
         with torch.no_grad():
             if delta.grad is not None:
-                if settings.surrogate_mode == "vae":
-                    # Spectral Gradient Filter
-                    grads = delta.grad
-                    _, channels, height, width = grads.shape
-                    fft_grads = torch.fft.fftshift(torch.fft.fft2(grads))
-                    
-                    Y, X = torch.meshgrid(torch.linspace(-1, 1, height), torch.linspace(-1, 1, width), indexing='ij')
-                    radius = torch.sqrt(X**2 + Y**2).to(device)
-                    
-                    # Isolate mid-frequencies: Inner radius 0.1, outer radius 0.45
-                    mask = (radius >= 0.1) & (radius <= 0.45)
-                    mask = mask.unsqueeze(0).unsqueeze(0).float()
-                    
-                    filtered_fft_grads = fft_grads * mask
-                    robust_grads = torch.fft.ifft2(torch.fft.ifftshift(filtered_fft_grads)).real
-                else:
-                    robust_grads = delta.grad
+                # FFT Spectral Gradient Filter — applied to ALL surrogate modes.
+                # Isolates mid-frequency gradients that survive JPEG compression
+                # while remaining invisible to the human eye.
+                grads = delta.grad
+                _, channels, height, width = grads.shape
+                fft_grads = torch.fft.fftshift(torch.fft.fft2(grads))
+                
+                Y, X = torch.meshgrid(torch.linspace(-1, 1, height), torch.linspace(-1, 1, width), indexing='ij')
+                radius = torch.sqrt(X**2 + Y**2).to(device)
+                
+                # Isolate mid-frequencies: Inner radius 0.1, outer radius 0.45
+                mask = (radius >= 0.1) & (radius <= 0.45)
+                mask = mask.unsqueeze(0).unsqueeze(0).float()
+                
+                filtered_fft_grads = fft_grads * mask
+                robust_grads = torch.fft.ifft2(torch.fft.ifftshift(filtered_fft_grads)).real
                 
                 # Apply step
                 delta.data -= alpha * robust_grads.sign()
