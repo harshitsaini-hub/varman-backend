@@ -41,9 +41,9 @@ class Settings(BaseSettings):
     allowed_extensions: str = "jpg,jpeg,png,webp"
 
     # ── Protection Engine ──────────────────────────────────────────────────
-    eot_iterations: int = 50
+    eot_iterations: int = 100
     processing_resolution: int = 512
-    epsilon_max: float = 0.06
+    epsilon_max: float = 0.035  # 9/255 — invisible at portrait resolution
     ssim_min_threshold: float = 0.92
     watermark_length: int = 16
     device: str = "cuda"  # "cpu" or "cuda"

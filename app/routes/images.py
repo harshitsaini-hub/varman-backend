@@ -127,8 +127,8 @@ async def _run_protection_task(
 # ── Routes ─────────────────────────────────────────────────────────────────
 
 
-@router.post("/upload", response_model=list[ImageResponse], status_code=status.HTTP_202_ACCEPTED)
-async def upload_images(
+@router.post("/protect", response_model=list[ImageResponse], status_code=status.HTTP_202_ACCEPTED)
+async def protect_images(
     files: list[UploadFile],
     current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
