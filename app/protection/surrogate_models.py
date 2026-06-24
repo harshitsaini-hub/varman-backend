@@ -38,7 +38,7 @@ class SurrogateEnsemble:
         x_norm    = (x - mean) / std
         x_resized = torch.nn.functional.interpolate(x_norm, size=(224, 224), mode='bilinear', align_corners=False)
 
-        clip_features   = self.clip_model.encode_image(x_resized)
+        clip_features   = self.clip_model.encode_image(x_resized)  # type: ignore
         resnet_features = self.resnet_model(x_resized)
         return torch.cat([clip_features, resnet_features], dim=1)
 
@@ -252,7 +252,7 @@ class FaceNetArcFaceEnsemble:
 
 class VAESurrogate:
     def __init__(self, device="cpu"):
-        from diffusers import AutoencoderKL
+        from diffusers import AutoencoderKL # type: ignore
 
         self.device = device
         local_model_path = os.path.join(
@@ -263,7 +263,7 @@ class VAESurrogate:
                 f"VAE model not found at {local_model_path}. Run download_vae.py first."
             )
         self.vae = AutoencoderKL.from_pretrained(local_model_path, local_files_only=True)
-        self.vae.eval().to(device)
+        self.vae.eval().to(device) # type: ignore
         for param in self.vae.parameters():
             param.requires_grad = False
 
@@ -273,4 +273,4 @@ class VAESurrogate:
         x_resized = torch.nn.functional.interpolate(
             x_scaled, size=(512, 512), mode='bilinear', align_corners=False
         )
-        return self.vae.encode(x_resized).latent_dist.mean
+        return self.vae.encode(x_resized).latent_dist.mean # type: ignore
