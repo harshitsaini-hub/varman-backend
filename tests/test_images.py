@@ -21,7 +21,7 @@ async def test_upload_image_creates_record(client: AsyncClient, test_token: str,
         
         # Create dummy image
         img_byte_arr = io.BytesIO()
-        Image.new('RGB', (100, 100), color='red').save(img_byte_arr, format='JPEG')
+        Image.new('RGB', (100, 100), color='red').save(img_byte_arr, format='JPEG')# type:ignore
         img_byte_arr.seek(0)
         
         response = await client.post(

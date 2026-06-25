@@ -13,7 +13,7 @@ def test_engine_invariants():
     test_out_path = "test_output.jpg"
     
     # Create a dummy image
-    img = Image.new("RGB", (256, 256), color="white")
+    img = Image.new("RGB", (256, 256), color="white") # type:ignore
     img.save(test_img_path)
     
     try:

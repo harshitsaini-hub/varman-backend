@@ -55,8 +55,6 @@ async def _run_protection_task(
     image_id: uuid.UUID,
     original_path: str,
     protected_path: str,
-    watermark_id: str,
-    watermark_enabled: bool,
     strength: float,
 ) -> None:
     """Acquire the GPU semaphore, run protection off-thread, update the DB."""
@@ -82,9 +80,7 @@ async def _run_protection_task(
                 protect_image_pipeline,
                 original_path,
                 protected_path,
-                watermark_id,
-                watermark_enabled,
-                strength,
+                strength=strength,
             )
             elapsed_ms = int((time.perf_counter() - t0) * 1000)
         except Exception as exc:
@@ -133,7 +129,6 @@ async def protect_images(
     current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
     protection_strength: float = Form(default=0.5),
-    watermark_enabled: bool = Form(default=True),
 ):
     """Accept one or more image uploads, queue them for protection."""
     validate_upload_count(files)
@@ -156,9 +151,6 @@ async def protect_images(
         width, height = get_image_dimensions(original_path)
         file_size = os.path.getsize(original_path)
 
-        # Generate watermark ID
-        wm_id = str(uuid.uuid4())[:settings.watermark_length] if watermark_enabled else ""
-
         # Create DB row
         record = ProtectedImage(
             id=image_id,
@@ -170,8 +162,8 @@ async def protect_images(
             height=height,
             original_size_bytes=file_size,
             protection_strength=protection_strength,
-            watermark_enabled=watermark_enabled,
-            watermark_id=wm_id,
+            watermark_enabled=False,
+            watermark_id="",
             eot_iterations=settings.eot_iterations,
             status="pending",
         )
@@ -189,8 +181,6 @@ async def protect_images(
                 image_id=record.id,
                 original_path=record.original_path,
                 protected_path=os.path.join(user_dir, f"{record.id}_protected.{record.original_path.rsplit('.', 1)[-1]}"),
-                watermark_id=record.watermark_id,
-                watermark_enabled=record.watermark_enabled,
                 strength=record.protection_strength,
             )
         )
