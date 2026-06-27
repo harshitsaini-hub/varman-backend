@@ -10,6 +10,7 @@ Key design decisions:
 """
 
 import asyncio
+import functools
 import logging
 import os
 import time
@@ -75,13 +76,13 @@ async def _run_protection_task(
         # Run the heavy pipeline off the event loop
         t0 = time.perf_counter()
         try:
-            metrics = await loop.run_in_executor(
-                _executor,
+            fn = functools.partial(
                 protect_image_pipeline,
                 original_path,
                 protected_path,
                 strength=strength,
             )
+            metrics = await loop.run_in_executor(_executor, fn)
             elapsed_ms = int((time.perf_counter() - t0) * 1000)
         except Exception as exc:
             logger.exception("Protection failed for image %s", image_id)
@@ -140,7 +141,7 @@ async def protect_images(
         image_id = uuid.uuid4()
         ext = (file.filename or "upload.jpg").rsplit(".", 1)[-1].lower()
         original_name = f"{image_id}_original.{ext}"
-        protected_name = f"{image_id}_protected.{ext}"
+        protected_name = f"{image_id}_protected.png"
         original_path = os.path.join(user_dir, original_name)
         protected_path = os.path.join(user_dir, protected_name)
 
@@ -180,7 +181,7 @@ async def protect_images(
             _run_protection_task(
                 image_id=record.id,
                 original_path=record.original_path,
-                protected_path=os.path.join(user_dir, f"{record.id}_protected.{record.original_path.rsplit('.', 1)[-1]}"),
+                protected_path=os.path.join(user_dir, f"{record.id}_protected.png"),
                 strength=record.protection_strength,
             )
         )
@@ -257,10 +258,12 @@ async def download_protected_image(
     if not img.protected_path or not os.path.exists(img.protected_path):
         raise HTTPException(status_code=404, detail="Protected file missing from disk")
 
+    # Derive the correct filename with .png extension
+    base_name = os.path.splitext(img.original_filename)[0]
     return FileResponse(
         path=img.protected_path,
-        filename=f"varman_{img.original_filename}",
-        media_type="image/jpeg",
+        filename=f"varman_{base_name}.png",
+        media_type="image/png",
     )
 
 

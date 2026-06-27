@@ -42,12 +42,9 @@ class Settings(BaseSettings):
 
     # ── Protection Engine ──────────────────────────────────────────────────
     eot_iterations: int = 100
-    processing_resolution: int = 512
-    epsilon_max: float = 0.035  # 9/255 — invisible at portrait resolution
-    ssim_min_threshold: float = 0.92
-    watermark_length: int = 16
-    device: str = "cuda"  # "cpu" or "cuda"
-    surrogate_mode: str = "facenet"  # "vae", "facenet", or "legacy"
+    epsilon_max: float = 0.016  # 4/255 — visually imperceptible L∞ bound
+    ssim_min_threshold: float = 0.98
+    device: str = "cpu"  # "cpu" or "cuda"
 
     # ── CORS ───────────────────────────────────────────────────────────────
     cors_origins: str = "http://localhost:5173"

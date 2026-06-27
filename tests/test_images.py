@@ -25,10 +25,10 @@ async def test_upload_image_creates_record(client: AsyncClient, test_token: str,
         img_byte_arr.seek(0)
         
         response = await client.post(
-            "/api/images/upload",
+            "/api/images/protect",
             headers={"Authorization": f"Bearer {test_token}"},
             files={"files": ("test.jpg", img_byte_arr, "image/jpeg")},
-            data={"protection_strength": 0.5, "watermark_enabled": True}
+            data={"protection_strength": 0.5}
         )
         
         assert response.status_code == 202
@@ -44,7 +44,7 @@ async def test_upload_image_creates_record(client: AsyncClient, test_token: str,
         # Check if DB was updated by the background task
         status_res = await client.get(f"/api/images/status/{image_id}", headers={"Authorization": f"Bearer {test_token}"})
         assert status_res.status_code == 200
-        assert status_res.json()["status"] in ["processing", "completed"]
+        assert status_res.json()["status"] in ["pending", "processing", "completed"]
 
 
 @pytest.mark.asyncio

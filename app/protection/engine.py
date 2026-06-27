@@ -2,6 +2,7 @@ import os
 import torch
 import torchvision.transforms.functional as TF
 import open_clip
+import torchvision.models as models
 import logging
 
 from app.config import settings
@@ -15,8 +16,6 @@ EPSILON = settings.epsilon_max  # L∞ bound — tune via .env
 def protect_image_pipeline(
     original_path: str,
     protected_path: str,
-    watermark_id: str = "",
-    watermark_enabled: bool = False,
     strength: float = 0.5,
 ):
     """
@@ -72,9 +71,28 @@ def protect_image_pipeline(
         x_norm = (x_resized - clip_mean) / clip_std
         return clip_model.encode_image(x_norm)  # type: ignore
 
-    # ── 3. Extract original embedding ─────────────────────────────────────────
+    # ── 2b. Load ResNet50 (CNN Surrogate) ─────────────────────────────────────
+    logger.info("[Varman] Loading ResNet50 (IMAGENET1K_V1)...")
+    resnet_model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1).to(device)
+    resnet_model.eval()
+    for param in resnet_model.parameters():
+        param.requires_grad = False
+
+    resnet_mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(device)
+    resnet_std  = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(device)
+
+    def resnet_encode(x: torch.Tensor) -> torch.Tensor:
+        """Encode a (1, 3, H, W) [0,1] tensor through ResNet50 → (1, 1000) logits."""
+        x_resized = torch.nn.functional.interpolate(
+            x, size=(224, 224), mode='bilinear', align_corners=False
+        )
+        x_norm = (x_resized - resnet_mean) / resnet_std
+        return resnet_model(x_norm)
+
+    # ── 3. Extract original embeddings ─────────────────────────────────────────
     with torch.no_grad():
-        orig_embedding = clip_encode(img_tensor)
+        orig_clip_embedding = clip_encode(img_tensor)
+        orig_resnet_embedding = resnet_encode(img_tensor)
 
     # ── 4. PGD optimisation loop ──────────────────────────────────────────────
     iterations = settings.eot_iterations
@@ -94,11 +112,20 @@ def protect_image_pipeline(
 
     for i in range(iterations):
         x_adv = torch.clamp(img_tensor + delta, 0.0, 1.0)
-        adv_embedding = clip_encode(x_adv)
+        adv_clip = clip_encode(x_adv)
+        adv_resnet = resnet_encode(x_adv)
 
-        # Objective: minimize cosine similarity → maximize embedding distance
-        cos_sim = torch.nn.functional.cosine_similarity(adv_embedding, orig_embedding)
-        loss = cos_sim.mean()
+        # Objective: minimize cosine similarity for BOTH models
+        cos_sim_clip = torch.nn.functional.cosine_similarity(adv_clip, orig_clip_embedding).mean()
+        cos_sim_resnet = torch.nn.functional.cosine_similarity(adv_resnet, orig_resnet_embedding).mean()
+        
+        # Dynamic Weighting: The model with higher similarity (harder to fool) gets more weight
+        with torch.no_grad():
+            total_sim = torch.abs(cos_sim_clip) + torch.abs(cos_sim_resnet) + 1e-6
+            w_clip = torch.abs(cos_sim_clip) / total_sim
+            w_resnet = torch.abs(cos_sim_resnet) / total_sim
+            
+        loss = w_clip * cos_sim_clip + w_resnet * cos_sim_resnet
 
         loss.backward()
 
@@ -115,12 +142,16 @@ def protect_image_pipeline(
         # Log at intervals
         if i % 10 == 0 or i == iterations - 1:
             with torch.no_grad():
-                current_cos = torch.nn.functional.cosine_similarity(
+                current_cos_clip = torch.nn.functional.cosine_similarity(
                     clip_encode(torch.clamp(img_tensor + delta, 0.0, 1.0)),
-                    orig_embedding
-                ).item()
-            cosine_log.append((i, current_cos))
-            logger.info(f"  [iter {i:3d}] cosine_sim = {current_cos:.4f}")
+                    orig_clip_embedding
+                ).mean().item()
+                current_cos_resnet = torch.nn.functional.cosine_similarity(
+                    resnet_encode(torch.clamp(img_tensor + delta, 0.0, 1.0)),
+                    orig_resnet_embedding
+                ).mean().item()
+            cosine_log.append((i, current_cos_clip, current_cos_resnet))
+            logger.info(f"  [iter {i:3d}] CLIP_cos = {current_cos_clip:.4f} | ResNet_cos = {current_cos_resnet:.4f}")
 
     # ── 5. Save as lossless PNG ───────────────────────────────────────────────
     with torch.no_grad():
@@ -138,19 +169,21 @@ def protect_image_pipeline(
     from app.protection.quality import compute_quality_metrics
     ssim_score, psnr_score = compute_quality_metrics(original_path, png_path)
 
-    final_cos = cosine_log[-1][1] if cosine_log else 1.0
+    final_clip_cos = cosine_log[-1][1] if cosine_log else 1.0
+    final_resnet_cos = cosine_log[-1][2] if cosine_log else 1.0
     status = "completed" if ssim_score >= 0.98 else "quality_warning"
 
     logger.info(
         f"[Varman] {status.upper()} — "
         f"SSIM={ssim_score:.4f}, PSNR={psnr_score:.2f}dB, "
-        f"CLIP_cos={final_cos:.4f}, ε={EPSILON:.5f}"
+        f"CLIP_cos={final_clip_cos:.4f}, ResNet_cos={final_resnet_cos:.4f}, ε={EPSILON:.5f}"
     )
 
     return {
         "ssim": ssim_score,
         "psnr": psnr_score,
-        "clip_cosine_final": final_cos,
+        "clip_cosine_final": final_clip_cos,
+        "resnet_cosine_final": final_resnet_cos,
         "cosine_log": cosine_log,
         "epsilon_used": EPSILON,
         "iterations": iterations,

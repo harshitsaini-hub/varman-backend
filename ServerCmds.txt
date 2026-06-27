@@ -1,5 +1,0 @@
-1 : cd D:\JavaProjects\AMOR\amor-backend
-2 : ..\venv\Scripts\activate (".." for onle folder up where Amor exists)
-3 : python -m uvicorn main:app --reload
-$ORIG = "D:\JavaProjects\Varman\Varman-backend\storage\a11eeb1b-b1c5-4c29-8fe0-09d24fd4620b\433f31af-1678-4cb7-b8cc-4d953e825c87_original.jpeg"
-$PROT = "D:\JavaProjects\Varman\Varman-backend\storage\a11eeb1b-b1c5-4c29-8fe0-09d24fd4620b\protected_test_run_final.jpeg"
