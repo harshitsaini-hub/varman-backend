@@ -267,6 +267,28 @@ async def download_protected_image(
     )
 
 
+@router.delete("/purge-all", status_code=status.HTTP_204_NO_CONTENT)
+async def purge_all_images(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete all images belonging to the current user."""
+    stmt = select(ProtectedImage).where(ProtectedImage.user_id == current_user.id)
+    result = await db.execute(stmt)
+    images = result.scalars().all()
+
+    for img in images:
+        for path in (img.original_path, img.protected_path):
+            if path and os.path.exists(path):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+        await db.delete(img)
+
+    await db.commit()
+
+
 @router.delete("/{image_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_image(
     image_id: uuid.UUID,

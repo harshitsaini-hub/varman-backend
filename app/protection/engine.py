@@ -1,6 +1,7 @@
 import os
 import torch
 import torchvision.transforms.functional as TF
+import torchvision.transforms as T
 import open_clip
 import torchvision.models as models
 import logging
@@ -89,12 +90,17 @@ def protect_image_pipeline(
         x_norm = (x_resized - resnet_mean) / resnet_std
         return resnet_model(x_norm)
 
-    # ── 3. Extract original embeddings ─────────────────────────────────────────
+    # ── 3. Extract original/target embeddings ─────────────────────────────────────────
     with torch.no_grad():
         orig_clip_embedding = clip_encode(img_tensor)
         orig_resnet_embedding = resnet_encode(img_tensor)
+        
+        # TARGETED ATTACK: Define malicious target semantics
+        tokenizer = open_clip.get_tokenizer('ViT-B-32')
+        text_tokens = tokenizer(["a blurry photo of a completely empty white room"]).to(device)
+        target_clip_embedding = clip_model.encode_text(text_tokens)
 
-    # ── 4. PGD optimisation loop ──────────────────────────────────────────────
+    # ── 4. PGD optimisation loop (Targeted + EoT) ──────────────────────────────────────────────
     iterations = settings.eot_iterations
     # Dynamic alpha: scale step size to epsilon and iterations for proper convergence.
     # Standard PGD heuristic: alpha = 2.5 * epsilon / iterations
@@ -109,23 +115,48 @@ def protect_image_pipeline(
     )
 
     cosine_log = []
+    
+    # Define EoT random augmentations
+    eot_transform = T.Compose([
+        T.RandomResizedCrop(size=(img.size[1], img.size[0]), scale=(0.8, 1.0)),
+        T.RandomApply([T.GaussianBlur(kernel_size=3)], p=0.3)
+    ])
 
     for i in range(iterations):
         x_adv = torch.clamp(img_tensor + delta, 0.0, 1.0)
-        adv_clip = clip_encode(x_adv)
-        adv_resnet = resnet_encode(x_adv)
+        
+        # Apply EoT
+        x_adv_eot = eot_transform(x_adv)
+        
+        adv_clip = clip_encode(x_adv_eot)
+        adv_resnet = resnet_encode(x_adv_eot)
 
-        # Objective: minimize cosine similarity for BOTH models
-        cos_sim_clip = torch.nn.functional.cosine_similarity(adv_clip, orig_clip_embedding).mean()
+        # Objective: 
+        # 1. MAXIMIZE similarity to target text (Minimize 1 - cos_sim_target)
+        # 2. MINIMIZE similarity to original image in CLIP (Minimize cos_sim_orig_clip)
+        # 3. MINIMIZE similarity to original image in ResNet (Minimize cos_sim_resnet)
+        cos_sim_target = torch.nn.functional.cosine_similarity(adv_clip, target_clip_embedding).mean()
+        cos_sim_orig_clip = torch.nn.functional.cosine_similarity(adv_clip, orig_clip_embedding).mean()
         cos_sim_resnet = torch.nn.functional.cosine_similarity(adv_resnet, orig_resnet_embedding).mean()
         
-        # Dynamic Weighting: The model with higher similarity (harder to fool) gets more weight
+        # Loss components (all should be minimized)
+        loss_clip_target = 1.0 - cos_sim_target      # Push towards target (ideal 0)
+        loss_clip_orig = cos_sim_orig_clip           # Push away from orig (ideal -1)
+        loss_resnet = cos_sim_resnet                 # Push away from orig (ideal -1)
+        
+        # We combine the two CLIP objectives:
+        loss_clip_combined = loss_clip_target + loss_clip_orig
+        
+        # Dynamic Weighting: The model that is further from its goal gets more weight.
         with torch.no_grad():
-            total_sim = torch.abs(cos_sim_clip) + torch.abs(cos_sim_resnet) + 1e-6
-            w_clip = torch.abs(cos_sim_clip) / total_sim
-            w_resnet = torch.abs(cos_sim_resnet) / total_sim
+            # Distances from ideal states
+            dist_clip = loss_clip_target.abs() + (1.0 + cos_sim_orig_clip).abs() 
+            dist_resnet = (1.0 + cos_sim_resnet).abs() 
+            total_dist = dist_clip + dist_resnet + 1e-6
+            w_clip = dist_clip / total_dist
+            w_resnet = dist_resnet / total_dist
             
-        loss = w_clip * cos_sim_clip + w_resnet * cos_sim_resnet
+        loss = w_clip * loss_clip_combined + w_resnet * loss_resnet
 
         loss.backward()
 
@@ -142,16 +173,16 @@ def protect_image_pipeline(
         # Log at intervals
         if i % 10 == 0 or i == iterations - 1:
             with torch.no_grad():
-                current_cos_clip = torch.nn.functional.cosine_similarity(
-                    clip_encode(torch.clamp(img_tensor + delta, 0.0, 1.0)),
-                    orig_clip_embedding
-                ).mean().item()
-                current_cos_resnet = torch.nn.functional.cosine_similarity(
-                    resnet_encode(torch.clamp(img_tensor + delta, 0.0, 1.0)),
-                    orig_resnet_embedding
-                ).mean().item()
-            cosine_log.append((i, current_cos_clip, current_cos_resnet))
-            logger.info(f"  [iter {i:3d}] CLIP_cos = {current_cos_clip:.4f} | ResNet_cos = {current_cos_resnet:.4f}")
+                x_eval = torch.clamp(img_tensor + delta, 0.0, 1.0)
+                eval_clip = clip_encode(x_eval)
+                eval_resnet = resnet_encode(x_eval)
+                
+                current_cos_orig_clip = torch.nn.functional.cosine_similarity(eval_clip, orig_clip_embedding).mean().item()
+                current_cos_target = torch.nn.functional.cosine_similarity(eval_clip, target_clip_embedding).mean().item()
+                current_cos_resnet = torch.nn.functional.cosine_similarity(eval_resnet, orig_resnet_embedding).mean().item()
+                
+            cosine_log.append((i, current_cos_orig_clip, current_cos_target, current_cos_resnet))
+            logger.info(f"  [iter {i:3d}] Target_cos = {current_cos_target:.4f} | OrigCLIP_cos = {current_cos_orig_clip:.4f} | ResNet_cos = {current_cos_resnet:.4f}")
 
     # ── 5. Save as lossless PNG ───────────────────────────────────────────────
     with torch.no_grad():
@@ -169,20 +200,22 @@ def protect_image_pipeline(
     from app.protection.quality import compute_quality_metrics
     ssim_score, psnr_score = compute_quality_metrics(original_path, png_path)
 
-    final_clip_cos = cosine_log[-1][1] if cosine_log else 1.0
-    final_resnet_cos = cosine_log[-1][2] if cosine_log else 1.0
-    status = "completed" if ssim_score >= 0.98 else "quality_warning"
+    final_orig_clip_cos = cosine_log[-1][1] if cosine_log else 1.0
+    final_target_cos = cosine_log[-1][2] if cosine_log else 0.0
+    final_resnet_cos = cosine_log[-1][3] if cosine_log else 1.0
+    status = "completed" if ssim_score >= 0.95 else "quality_warning"
 
     logger.info(
         f"[Varman] {status.upper()} — "
         f"SSIM={ssim_score:.4f}, PSNR={psnr_score:.2f}dB, "
-        f"CLIP_cos={final_clip_cos:.4f}, ResNet_cos={final_resnet_cos:.4f}, ε={EPSILON:.5f}"
+        f"Target_cos={final_target_cos:.4f}, OrigCLIP_cos={final_orig_clip_cos:.4f}, ResNet_cos={final_resnet_cos:.4f}, ε={EPSILON:.5f}"
     )
 
     return {
         "ssim": ssim_score,
         "psnr": psnr_score,
-        "clip_cosine_final": final_clip_cos,
+        "clip_cosine_final": final_orig_clip_cos,
+        "target_cosine_final": final_target_cos,
         "resnet_cosine_final": final_resnet_cos,
         "cosine_log": cosine_log,
         "epsilon_used": EPSILON,

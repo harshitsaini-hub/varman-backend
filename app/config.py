@@ -42,7 +42,7 @@ class Settings(BaseSettings):
 
     # ── Protection Engine ──────────────────────────────────────────────────
     eot_iterations: int = 100
-    epsilon_max: float = 0.016  # 4/255 — visually imperceptible L∞ bound
+    epsilon_max: float = 0.0313  # 8/255 — Final compromise bound between visual quality and disruption
     ssim_min_threshold: float = 0.98
     device: str = "cpu"  # "cpu" or "cuda"
 

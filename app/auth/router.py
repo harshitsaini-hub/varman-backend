@@ -82,3 +82,34 @@ async def read_users_me(
 ):
     """Get current authenticated user profile."""
     return current_user
+
+
+@router.delete("/terminate-account", status_code=status.HTTP_204_NO_CONTENT)
+async def terminate_account(
+    current_user: Annotated[User, Depends(security.get_current_user)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete the authenticated user and clean up their files."""
+    from app.models.protected_image import ProtectedImage
+    import shutil
+    import os
+    from app.config import settings
+
+    # Delete images in database
+    stmt = select(ProtectedImage).where(ProtectedImage.user_id == current_user.id)
+    result = await db.execute(stmt)
+    images = result.scalars().all()
+    for img in images:
+        await db.delete(img)
+
+    # Delete storage folder on disk
+    user_dir = os.path.join(settings.storage_dir, str(current_user.id))
+    if os.path.exists(user_dir):
+        try:
+            shutil.rmtree(user_dir)
+        except OSError as e:
+            logger.warning("Failed to remove user directory: %s", e)
+
+    # Delete user database entry
+    await db.delete(current_user)
+    await db.commit()
