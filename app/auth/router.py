@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -32,10 +33,12 @@ async def register(
 
     # Create new user
     hashed_password = security.get_password_hash(user_in.password)
+    vault_salt = os.urandom(32).hex()
     new_user = User(
         email=user_in.email,
         hashed_password=hashed_password,
-        display_name=user_in.display_name
+        display_name=user_in.display_name,
+        vault_salt=vault_salt,
     )
     
     db.add(new_user)
@@ -71,9 +74,15 @@ async def login(
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
 
+    # Generate vault salt for legacy users who were created before the zero-knowledge vault
+    if not user.vault_salt:
+        import os
+        user.vault_salt = os.urandom(32).hex()
+        await db.commit()
+
     # Generate token
     access_token = security.create_access_token(subject=user.id)
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer", "vault_salt": user.vault_salt}
 
 
 @router.get("/me", response_model=schemas.UserResponse)

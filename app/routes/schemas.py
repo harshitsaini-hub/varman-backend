@@ -29,6 +29,7 @@ class ImageResponse(BaseModel):
     epsilon_used: float | None = None
     processing_time_ms: int | None = None
     error_message: str | None = None
+    vault_sealed: bool = False
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
@@ -43,6 +44,7 @@ class ImageStatusResponse(BaseModel):
     psnr_score: float | None = None
     processing_time_ms: int | None = None
     error_message: str | None = None
+    vault_sealed: bool = False
 
     model_config = {"from_attributes": True}
 

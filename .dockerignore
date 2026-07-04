@@ -1,0 +1,21 @@
+# Environments
+.venv/
+venv/
+env/
+.env
+
+# Cache and temporary files
+__pycache__/
+*.pyc
+.pytest_cache/
+.vscode/
+
+# Database and local storage
+*.db
+*.sqlite
+*.sqlite3
+storage/
+
+# Git
+.git/
+.gitignore

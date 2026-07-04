@@ -4,6 +4,7 @@ from pydantic import BaseModel, EmailStr, Field
 class Token(BaseModel):
     access_token: str
     token_type: str
+    vault_salt: str = ""
 
 class TokenData(BaseModel):
     user_id: str | None = None
@@ -18,6 +19,7 @@ class UserCreate(UserBase):
 class UserResponse(UserBase):
     id: uuid.UUID
     is_active: bool
+    vault_salt: str = ""
 
     model_config = {
         "from_attributes": True

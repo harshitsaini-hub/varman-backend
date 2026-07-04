@@ -107,10 +107,19 @@ async def _run_protection_task(
                 img.psnr_score = metrics.get("psnr") 
                 img.epsilon_used = metrics.get("epsilon_used") 
                 img.processing_time_ms = elapsed_ms
+                img.original_path = None  # Privacy: path cleared
                 if os.path.exists(protected_path):
                     img.protected_path = protected_path 
                     img.protected_size_bytes = os.path.getsize(protected_path) 
                 await db.commit()
+
+        # ── Privacy: delete original immediately ─────────────────────
+        if os.path.exists(original_path):
+            try:
+                os.remove(original_path)
+                logger.info("[Vault] Deleted original: %s", original_path)
+            except OSError:
+                logger.warning("[Vault] Failed to delete original: %s", original_path)
 
         logger.info(
             "Protection complete for %s — SSIM=%.3f  PSNR=%.1f  time=%dms",
@@ -258,13 +267,82 @@ async def download_protected_image(
     if not img.protected_path or not os.path.exists(img.protected_path):
         raise HTTPException(status_code=404, detail="Protected file missing from disk")
 
-    # Derive the correct filename with .png extension
     base_name = os.path.splitext(img.original_filename)[0]
+
+    if img.vault_sealed:
+        # Serve encrypted blob — frontend will decrypt
+        return FileResponse(
+            path=img.protected_path,
+            filename=f"varman_{base_name}.enc",
+            media_type="application/octet-stream",
+        )
+
+    # Plaintext (not yet sealed) — standard PNG download
     return FileResponse(
         path=img.protected_path,
         filename=f"varman_{base_name}.png",
         media_type="image/png",
     )
+
+
+@router.post("/{image_id}/vault", status_code=status.HTTP_200_OK)
+async def seal_vault_image(
+    image_id: uuid.UUID,
+    vault_blob: UploadFile,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Accept an encrypted blob from the frontend and replace the plaintext protected file.
+
+    This is the core of Varman's zero-knowledge vault: after the frontend
+    encrypts the protected image client-side, it uploads the ciphertext here.
+    The server deletes the plaintext protected file and stores only the
+    encrypted blob — which it cannot read.
+    """
+    stmt = select(ProtectedImage).where(
+        ProtectedImage.id == image_id,
+        ProtectedImage.user_id == current_user.id,
+    )
+    result = await db.execute(stmt)
+    img = result.scalar_one_or_none()
+
+    if not img:
+        raise HTTPException(status_code=404, detail="Image not found")
+    if img.vault_sealed:
+        raise HTTPException(status_code=409, detail="Image is already vault-sealed")
+
+    user_dir = _user_storage_dir(current_user.id)
+    vault_path = os.path.join(user_dir, f"{image_id}_vault.enc")
+
+    # Stream the encrypted blob to disk
+    try:
+        with open(vault_path, "wb") as out:
+            while True:
+                chunk = await vault_blob.read(1024 * 1024)
+                if not chunk:
+                    break
+                out.write(chunk)
+    except Exception as exc:
+        if os.path.exists(vault_path):
+            os.remove(vault_path)
+        raise HTTPException(status_code=500, detail="Failed to save vault blob") from exc
+
+    # Delete the plaintext protected file
+    if img.protected_path and os.path.exists(img.protected_path):
+        try:
+            os.remove(img.protected_path)
+            logger.info("[Vault] Deleted plaintext protected: %s", img.protected_path)
+        except OSError:
+            logger.warning("[Vault] Failed to delete plaintext: %s", img.protected_path)
+
+    # Update DB record
+    img.protected_path = vault_path
+    img.vault_sealed = True
+    img.protected_size_bytes = os.path.getsize(vault_path)
+    await db.commit()
+
+    logger.info("[Vault] Image %s sealed successfully", image_id)
+    return {"status": "sealed", "image_id": str(image_id)}
 
 
 @router.delete("/purge-all", status_code=status.HTTP_204_NO_CONTENT)

@@ -42,7 +42,7 @@ class ProtectedImage(Base):
 
     # ── File metadata ──────────────────────────────────────────────────
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    original_path: Mapped[str] = mapped_column(Text, nullable=False)
+    original_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     protected_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     width: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     height: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -57,6 +57,7 @@ class ProtectedImage(Base):
     eot_iterations: Mapped[int] = mapped_column(Integer, nullable=False, default=50)
     watermark_id: Mapped[str] = mapped_column(String(36), nullable=False, default="")
     watermark_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    vault_sealed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # ── Quality metrics (filled on completion) ─────────────────────────
     ssim_score: Mapped[float | None] = mapped_column(Float, nullable=True)
