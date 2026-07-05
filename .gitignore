@@ -13,6 +13,6 @@ build/
 .pytest_cache/
 .ruff_cache/
 # Ignore heavy AI models and checkpoints
-models/
+/models/
 *.safetensors
 *.bin
