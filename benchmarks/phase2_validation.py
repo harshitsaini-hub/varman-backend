@@ -33,8 +33,8 @@ from PIL import Image
 from app.protection.protection_engine import ProtectionEngine
 from app.protection.evaluation_engine import EvaluationEngine
 
-PRESET_ORDER = ("light", "balanced", "aggressive")
-NPR_ORDER = ("jpeg_q95", "jpeg_q85", "jpeg_q75", "jpeg_q60", "resize_0_75_jpeg_q75")
+PRESET_ORDER = ("Light", "Balanced", "Aggressive")
+NPR_ORDER = ("Q95", "Q85", "Q75", "Q60", "Resize075_Q75")
 
 
 def _load_optional_lfw_images(output_dir: Path, limit: int) -> list[Path]:
@@ -70,38 +70,103 @@ def _fmt(value: float | None) -> str:
 
 
 def run_validation(yunet_model: Path, images: list[Path], output_dir: Path) -> dict[str, Any]:
-    detector = YuNetFaceDetector(model_path=str(yunet_model), confidence_threshold=0.9)
-    if not detector.available:
+    # ProtectionEngine and EvaluationEngine each manage their own YuNet
+    # instance internally. We pass model_dir so they find the ONNX file.
+    model_dir = str(yunet_model.parent)
+    protection_eng = ProtectionEngine(model_dir=model_dir)
+    evaluation_eng = EvaluationEngine(model_dir=model_dir)
+
+    if protection_eng.yunet_detector is None:
         raise RuntimeError(f"YuNet model unavailable or OpenCV FaceDetectorYN missing: {yunet_model}")
 
     rows: list[dict[str, Any]] = []
     detection_counts = {"input_images": len(images), "faces_detected": 0}
+
     for image_path in images:
         image_bgr = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
         if image_bgr is None:
             raise RuntimeError(f"Unable to read validation image: {image_path}")
-        if detector.detect(image_bgr) is None:
+
+        # Check if face is detected at all
+        faces_check = protection_eng.detect_faces(image_bgr)
+        if not faces_check:
             continue
         detection_counts["faces_detected"] += 1
+
         for preset in PRESET_ORDER:
-            protected_path = output_dir / f"{image_path.stem}_{preset}.png"
-            start = time.perf_counter()
-            protection = ProtectionEngine(detector=detector).protect(str(image_path), str(protected_path), preset)
-            evaluation = EvaluationEngine(detector=detector).evaluate(str(image_path), protection["output_path"])
-            total_ms = int((time.perf_counter() - start) * 1000)
+            # ── Protection phase with per-stage timing ──
+            t_total = time.perf_counter()
+
+            t_detect = time.perf_counter()
+            faces = protection_eng.detect_faces(image_bgr)
+            t_detect_ms = int((time.perf_counter() - t_detect) * 1000)
+
+            preset_cfg = protection_eng.PRESETS.get(preset, protection_eng.PRESETS["Balanced"])
+            warp_scale = preset_cfg["warp_scale"]
+            dct_strength = preset_cfg["dct_strength"]
+
+            t_warp = time.perf_counter()
+            warped = protection_eng.apply_relative_soft_masked_warp(image_bgr, faces, warp_scale)
+            t_warp_ms = int((time.perf_counter() - t_warp) * 1000)
+
+            t_dct = time.perf_counter()
+            dct_applied = protection_eng.apply_y_channel_dct_perturbation(warped, dct_strength)
+            t_dct_ms = int((time.perf_counter() - t_dct) * 1000)
+
+            t_grid = time.perf_counter()
+            # Grid disabled by default per locked spec
+            protected_bgr = dct_applied
+            t_grid_ms = int((time.perf_counter() - t_grid) * 1000)
+
+            # Run full protect() for guardrail validation (includes attenuation loop)
+            t_guardrail = time.perf_counter()
+            protected_bgr_final, prot_meta = protection_eng.protect(
+                img_bgr=image_bgr,
+                preset_name=preset,
+                enable_grid=False,
+            )
+            t_guardrail_ms = int((time.perf_counter() - t_guardrail) * 1000)
+
+            # ── Evaluation phase ──
+            t_eval = time.perf_counter()
+            eval_metrics = evaluation_eng.evaluate(
+                orig_bgr=image_bgr,
+                protected_bgr=protected_bgr_final,
+                faces=prot_meta["faces"],
+            )
+            t_eval_ms = int((time.perf_counter() - t_eval) * 1000)
+
+            t_total_ms = int((time.perf_counter() - t_total) * 1000)
+
+            timings = {
+                "face_detection_ms": t_detect_ms,
+                "face_warp_ms": t_warp_ms,
+                "y_dct_ms": t_dct_ms,
+                "grid_ms": t_grid_ms,
+                "quality_guardrail_ms": t_guardrail_ms,
+                "evaluation_ms": t_eval_ms,
+                "total_ms": t_total_ms,
+            }
+
             rows.append(
                 {
                     "image": image_path.name,
                     "preset": preset,
-                    "guardrail_satisfied": protection["guardrail_satisfied"],
-                    "attenuation_factor": protection["attenuation_factor"],
-                    "global_ssim": evaluation["global_ssim"],
-                    "face_ssim": evaluation["face_ssim"],
-                    "psnr": evaluation["psnr"],
-                    "linf": evaluation["linf"],
-                    "y_npr": evaluation["y_npr"],
-                    "alignment": evaluation["alignment"],
-                    "timings": {**protection["timings"], "evaluation_ms": total_ms - protection["timings"].get("quality_guardrail_ms", 0), "total_ms": total_ms},
+                    "guardrail_satisfied": prot_meta["guardrail_satisfied"],
+                    "attenuation_factor": prot_meta["attenuation_factor"],
+                    "global_ssim": eval_metrics["global_ssim"],
+                    "face_ssim": eval_metrics["face_ssim_1_2x"],
+                    "psnr": eval_metrics["psnr_db"],
+                    "linf": eval_metrics["l_inf_max_shift"],
+                    "y_npr": eval_metrics["y_npr_breakdown"],
+                    "avg_y_npr": eval_metrics["avg_y_npr_percent"],
+                    "alignment": {
+                        "landmark_shift_px": eval_metrics["landmark_shift_delta_px"],
+                        "alignment_error": eval_metrics["alignment_error_orig"],
+                        "alignment_error_protected": eval_metrics["alignment_error_protected"],
+                        "alignment_error_pct_change": eval_metrics["alignment_error_pct_change"],
+                    },
+                    "timings": timings,
                 }
             )
 
@@ -113,8 +178,10 @@ def run_validation(yunet_model: Path, images: list[Path], output_dir: Path) -> d
             "face_ssim": _mean([row["face_ssim"] for row in preset_rows]),
             "psnr": _mean([row["psnr"] for row in preset_rows]),
             "linf": _mean([row["linf"] for row in preset_rows]),
+            "avg_y_npr": _mean([row["avg_y_npr"] for row in preset_rows]),
             "landmark_shift_px": _mean([row["alignment"]["landmark_shift_px"] for row in preset_rows]),
             "alignment_error": _mean([row["alignment"]["alignment_error"] for row in preset_rows]),
+            "alignment_error_pct_change": _mean([row["alignment"]["alignment_error_pct_change"] for row in preset_rows]),
             "guardrail_satisfied_count": sum(1 for row in preset_rows if row["guardrail_satisfied"]),
             "count": len(preset_rows),
         }
@@ -144,25 +211,32 @@ def print_tables(result: dict[str, Any]) -> None:
         ("Global SSIM", "global_ssim"),
         ("Face SSIM", "face_ssim"),
         ("PSNR", "psnr"),
-        ("L∞", "linf"),
-        ("Y-NPR Q95", "jpeg_q95"),
-        ("Y-NPR Q85", "jpeg_q85"),
-        ("Y-NPR Q75", "jpeg_q75"),
-        ("Y-NPR Q60", "jpeg_q60"),
-        ("Resize+Q75", "resize_0_75_jpeg_q75"),
-        ("Landmark Δpx", "landmark_shift_px"),
+        ("L-inf", "linf"),
+        ("Avg Y-NPR", "avg_y_npr"),
+        ("Y-NPR Q95", "Q95"),
+        ("Y-NPR Q85", "Q85"),
+        ("Y-NPR Q75", "Q75"),
+        ("Y-NPR Q60", "Q60"),
+        ("Resize+Q75", "Resize075_Q75"),
+        ("Landmark delta-px", "landmark_shift_px"),
         ("Alignment error", "alignment_error"),
+        ("Alignment err %chg", "alignment_error_pct_change"),
     ]
     print("\nMetric                     Light       Balanced    Aggressive")
     print("------------------------------------------------------------")
     for label, key in metrics:
-        print(f"{label:<26} {_fmt(summary['light'][key]):>10}  {_fmt(summary['balanced'][key]):>10}  {_fmt(summary['aggressive'][key]):>10}")
+        print(f"{label:<26} {_fmt(summary['Light'][key]):>10}  {_fmt(summary['Balanced'][key]):>10}  {_fmt(summary['Aggressive'][key]):>10}")
 
     timing_keys = ["face_detection_ms", "face_warp_ms", "y_dct_ms", "grid_ms", "quality_guardrail_ms", "evaluation_ms", "total_ms"]
     print("\nLatency ms                 Light       Balanced    Aggressive")
     print("------------------------------------------------------------")
     for key in timing_keys:
-        print(f"{key:<26} {_fmt(summary['light'].get(key)):>10}  {_fmt(summary['balanced'].get(key)):>10}  {_fmt(summary['aggressive'].get(key)):>10}")
+        print(f"{key:<26} {_fmt(summary['Light'].get(key)):>10}  {_fmt(summary['Balanced'].get(key)):>10}  {_fmt(summary['Aggressive'].get(key)):>10}")
+
+    print("\nGuardrail Results:")
+    for preset in PRESET_ORDER:
+        s = summary[preset]
+        print(f"  {preset}: {s['guardrail_satisfied_count']}/{s['count']} satisfied")
 
 
 def main() -> None:
