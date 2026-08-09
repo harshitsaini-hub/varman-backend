@@ -12,7 +12,6 @@ from sqlalchemy import (
     Uuid,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
 from app.models import Base
 
 
@@ -42,33 +41,37 @@ class ProtectedImage(Base):
 
     # ── File metadata ──────────────────────────────────────────────────
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    original_path: Mapped[str | None] = mapped_column(Text, nullable=True)
-    protected_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    original_path: Mapped[str] = mapped_column(Text, nullable=True)
+    protected_path: Mapped[str] = mapped_column(Text, nullable=True)
     width: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     height: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     original_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    protected_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    protected_size_bytes: Mapped[int] = mapped_column(Integer, nullable=True)
 
     # ── Protection parameters ──────────────────────────────────────────
     protection_strength: Mapped[float] = mapped_column(
         Float, nullable=False, default=0.5
     )
-    epsilon_used: Mapped[float | None] = mapped_column(Float, nullable=True)
+    epsilon_used: Mapped[float] = mapped_column(Float, nullable=True)
     eot_iterations: Mapped[int] = mapped_column(Integer, nullable=False, default=50)
     watermark_id: Mapped[str] = mapped_column(String(36), nullable=False, default="")
     watermark_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     vault_sealed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # ── Quality metrics (filled on completion) ─────────────────────────
-    ssim_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    psnr_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ssim_score: Mapped[float] = mapped_column(Float, nullable=True)
+    psnr_score: Mapped[float] = mapped_column(Float, nullable=True)
+    face_ssim_score: Mapped[float] = mapped_column(Float, nullable=True)
+    linf_score: Mapped[float] = mapped_column(Float, nullable=True)
+    guardrail_satisfied: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    attenuation_factor: Mapped[float] = mapped_column(Float, nullable=True)
 
     # ── Processing state ───────────────────────────────────────────────
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pending"
     )  # pending | processing | completed | failed
-    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    processing_time_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_message: Mapped[str] = mapped_column(Text, nullable=True)
+    processing_time_ms: Mapped[int] = mapped_column(Integer, nullable=True)
 
     # ── Timestamps ─────────────────────────────────────────────────────
     created_at: Mapped[str] = mapped_column(

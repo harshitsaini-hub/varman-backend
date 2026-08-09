@@ -1,85 +1,235 @@
-"""
-Test the Varman Semantic Disruption Engine.
-
-Validates:
-  1. Epsilon bound — max pixel shift is within the configured L∞ limit.
-  2. Quality preservation — SSIM exceeds the minimum threshold.
-  3. Embedding disruption — CLIP cosine similarity is reduced.
-"""
-
 import os
-import torch
+
 import numpy as np
 from PIL import Image
-from app.protection.engine import protect_image_pipeline, EPSILON
+
+from app.protection.engine import (
+    EvaluationEngine,
+    FaceDetection,
+    PRESETS,
+    ProtectionEngine,
+    YuNetFaceDetector,
+    protect_image_pipeline,
+)
 
 
-def test_engine_invariants():
-    """
-    Run the protection pipeline on a dummy image and verify
-    the output satisfies all mathematical invariants.
-    """
-    test_img_path = "test_invariant_input.jpg"
-    test_out_path = "test_invariant_output.png"
+class NoFaceDetector(YuNetFaceDetector):
+    def __init__(self):
+        pass
 
-    # Create a dummy 256x256 image with some structure (not blank white)
-    np.random.seed(42)
-    pixels = np.random.randint(50, 200, (256, 256, 3), dtype=np.uint8)
-    img = Image.fromarray(pixels)
-    img.save(test_img_path)
+    @property
+    def available(self):
+        return False
 
-    try:
-        result = protect_image_pipeline(test_img_path, test_out_path)
-
-        # Test 1: Epsilon Bound
-        # The engine saves the file — reload both and check pixel diff
-        orig_arr = np.array(Image.open(test_img_path).convert("RGB")).astype(float)
-        prot_arr = np.array(Image.open(result["output_path"]).convert("RGB")).astype(float)
-
-        max_shift = np.max(np.abs(orig_arr - prot_arr)) / 255.0
-        # Account for 8-bit quantization. If EPSILON=0.016 (4.08/255), 
-        # rounding can cause up to a 5/255 shift in uint8 space.
-        allowed_shift_in_uint8 = np.ceil(EPSILON * 255) / 255.0
-        tolerance = 1e-4
-        assert max_shift <= allowed_shift_in_uint8 + tolerance, (
-            f"Epsilon bound failed! Max shift {max_shift:.6f} exceeded {allowed_shift_in_uint8:.6f}"
-        )
-
-        # Test 2: Quality Preservation (SSIM > 0.95 at minimum)
-        ssim_score = result["ssim"]
-        assert ssim_score > 0.95, (
-            f"Quality too low! SSIM={ssim_score:.4f} (need > 0.95)"
-        )
-
-        # Test 3: Embedding Disruption
-        orig_clip_cos = result["clip_cosine_final"]
-        target_clip_cos = result["target_cosine_final"]
-        resnet_cos = result["resnet_cosine_final"]
-        
-        # On a purely random noise image, with EoT and a 16/255 bound, 
-        # reaching 0.8 is too strict. We just ensure it moved.
-        assert orig_clip_cos < 0.98, (
-            f"CLIP Embedding not disrupted! orig_clip_cos={orig_clip_cos:.4f}"
-        )
-        assert resnet_cos < 0.9, (
-            f"ResNet Embedding not disrupted! resnet_cos={resnet_cos:.4f}"
-        )
-
-        print("Engine invariants test passed!")
-        print(f"   - Max pixel shift: {max_shift:.6f} <= {allowed_shift_in_uint8:.6f}")
-        print(f"   - SSIM: {ssim_score:.4f}")
-        print(f"   - CLIP cosine: {orig_clip_cos:.4f}")
-        print(f"   - ResNet cosine: {resnet_cos:.4f}")
-
-    finally:
-        for p in (test_img_path, test_out_path):
-            if os.path.exists(p):
-                os.remove(p)
-        # Also clean up the PNG the engine may have created
-        png_variant = os.path.splitext(test_out_path)[0] + ".png"
-        if os.path.exists(png_variant):
-            os.remove(png_variant)
+    def detect(self, image_bgr):
+        return None
 
 
-if __name__ == "__main__":
-    test_engine_invariants()
+class FixedFaceDetector(YuNetFaceDetector):
+    def __init__(self, original_landmarks=None, protected_landmarks=None):
+        self.calls = 0
+        self.original_landmarks = original_landmarks
+        self.protected_landmarks = protected_landmarks or original_landmarks
+
+    @property
+    def available(self):
+        return True
+
+    def detect(self, image_bgr):
+        self.calls += 1
+        landmarks = self.original_landmarks if self.calls == 1 else self.protected_landmarks
+        if landmarks is None:
+            landmarks = np.array(
+                [[48, 50], [80, 50], [64, 66], [52, 84], [76, 84]],
+                dtype=np.float32,
+            )
+        return FaceDetection((32.0, 32.0, 64.0, 64.0), landmarks.astype(np.float32), 0.99)
+
+
+def _make_test_image(path):
+    yy, xx = np.mgrid[0:128, 0:128]
+    pixels = np.stack([
+        (xx * 2) % 256,
+        (yy * 2) % 256,
+        ((xx + yy) * 3) % 256,
+    ], axis=2).astype(np.uint8)
+    Image.fromarray(pixels).save(path)
+
+
+def test_no_face_still_applies_y_channel_dct_and_guardrail(tmp_path):
+    original = tmp_path / "input.png"
+    protected = tmp_path / "output.png"
+    _make_test_image(original)
+
+    result = ProtectionEngine(detector=NoFaceDetector()).protect(str(original), str(protected), "balanced")
+
+    assert result["face_detected"] is False
+    assert result["output_path"].endswith(".png")
+    assert os.path.exists(result["output_path"])
+    assert result["enable_grid_layer"] is False
+    assert "guardrail_satisfied" in result
+    assert "attenuation_factor" in result
+    assert result["global_ssim"] >= PRESETS["balanced"].global_ssim_threshold
+    assert result["linf"] > 0
+
+
+def test_evaluation_exposes_required_y_npr_and_quality_metrics(tmp_path):
+    original = tmp_path / "input.png"
+    protected = tmp_path / "output.png"
+    _make_test_image(original)
+    result = ProtectionEngine(detector=NoFaceDetector()).protect(str(original), str(protected), "light")
+
+    metrics = EvaluationEngine(detector=NoFaceDetector()).evaluate(str(original), result["output_path"])
+
+    assert set(metrics["y_npr"]) == {"jpeg_q95", "jpeg_q85", "jpeg_q75", "jpeg_q60", "resize_0_75_jpeg_q75"}
+    assert metrics["global_ssim"] >= PRESETS["light"].global_ssim_threshold
+    assert metrics["face_ssim"] is None
+    assert metrics["psnr"] > 0
+    assert metrics["linf"] > 0
+    assert metrics["alignment"] == {
+        "landmark_shift_px": None,
+        "alignment_error": None,
+        "alignment_error_pct_change": None,
+    }
+
+
+def test_pipeline_orchestrates_protection_and_evaluation(tmp_path):
+    original = tmp_path / "input.png"
+    protected = tmp_path / "output.png"
+    _make_test_image(original)
+
+    result = protect_image_pipeline(str(original), str(protected), strength=0.2)
+
+    assert result["preset"] == "light"
+    assert result["ssim"] == result["global_ssim"]
+    assert "y_npr" in result
+    assert "alignment" in result
+    assert result["status"] == "completed"
+    assert result["timings"]["total_ms"] >= 0
+
+
+def test_quality_metrics_are_full_image_not_y_only():
+    original = np.zeros((16, 16, 3), dtype=np.uint8)
+    protected = original.copy()
+    protected[:, :, 2] = 120
+
+    metrics = EvaluationEngine(detector=NoFaceDetector()).compute_quality(original, protected, None)
+
+    assert metrics["global_ssim"] < 1.0
+    assert metrics["psnr"] < float("inf")
+    assert metrics["linf"] == 120.0
+
+
+def test_face_warp_displacement_is_scaled_by_face_width():
+    engine = ProtectionEngine(detector=NoFaceDetector())
+    image = np.zeros((128, 128, 3), dtype=np.uint8)
+    image[:, :, 0] = np.arange(128, dtype=np.uint8)
+    small_face = FaceDetection((32.0, 32.0, 40.0, 40.0), np.zeros((5, 2), dtype=np.float32), 0.99)
+    large_face = FaceDetection((16.0, 16.0, 80.0, 80.0), np.zeros((5, 2), dtype=np.float32), 0.99)
+
+    small = engine._apply_face_warp(image, small_face, 0.015)
+    large = engine._apply_face_warp(image, large_face, 0.015)
+
+    assert np.max(np.abs(large.astype(np.int16) - image.astype(np.int16))) > np.max(
+        np.abs(small.astype(np.int16) - image.astype(np.int16))
+    )
+
+
+def test_expanded_face_ssim_uses_1_2_bbox_region():
+    evaluator = EvaluationEngine(detector=NoFaceDetector())
+    original = np.zeros((100, 100, 3), dtype=np.uint8)
+    protected = original.copy()
+    face = FaceDetection((30.0, 30.0, 40.0, 40.0), np.zeros((5, 2), dtype=np.float32), 0.99)
+    protected[26:74, 26:74, :] = 255
+
+    face_ssim = evaluator._expanded_face_ssim(original, protected, face)
+
+    assert face_ssim is not None
+    assert face_ssim < 0.1
+
+
+def test_presets_and_guardrail_regenerate_with_attenuation(tmp_path):
+    original = tmp_path / "input.png"
+    _make_test_image(original)
+
+    light = ProtectionEngine(detector=NoFaceDetector()).protect(str(original), str(tmp_path / "light.png"), "light")
+    aggressive = ProtectionEngine(detector=NoFaceDetector()).protect(str(original), str(tmp_path / "aggressive.png"), "aggressive")
+    forced = ProtectionEngine(detector=NoFaceDetector(), min_attenuation=0.25).protect(
+        str(original),
+        str(tmp_path / "forced.png"),
+        "light",
+    )
+
+    light_linf = light["linf"]
+    aggressive_linf = aggressive["linf"]
+    assert aggressive_linf >= light_linf
+    assert forced["guardrail_satisfied"] is True
+    assert forced["attenuation_factor"] == 1.0
+
+
+def test_guardrail_attenuates_and_regenerates_candidates(monkeypatch, tmp_path):
+    original = tmp_path / "input.png"
+    _make_test_image(original)
+    strengths = []
+
+    class RecordingEngine(ProtectionEngine):
+        def _apply_y_channel_dct(self, image_bgr, strength):
+            strengths.append(strength)
+            return super()._apply_y_channel_dct(image_bgr, strength)
+
+    calls = []
+
+    def fake_quality(self, original_image, protected_image, face):
+        calls.append(1)
+        if len(calls) == 1:
+            return {"global_ssim": 0.0, "face_ssim": None, "psnr": 1.0, "linf": 1.0}
+        return {"global_ssim": 1.0, "face_ssim": None, "psnr": 99.0, "linf": 1.0}
+
+    monkeypatch.setattr("app.protection.engine.EvaluationEngine.compute_quality", fake_quality)
+
+    result = RecordingEngine(detector=NoFaceDetector()).protect(str(original), str(tmp_path / "attenuated.png"), "light")
+
+    assert result["guardrail_satisfied"] is True
+    assert result["attenuation_factor"] == 0.5
+    assert strengths == [PRESETS["light"].dct_strength, PRESETS["light"].dct_strength * 0.5]
+
+
+def test_y_npr_formula_uses_y_channel_baseline_corrected_norm(monkeypatch):
+    evaluator = EvaluationEngine(detector=NoFaceDetector())
+    original = np.zeros((1, 2, 3), dtype=np.uint8)
+    protected = original.copy()
+    protected[0, 0, :] = 10
+
+    y_o = np.dstack([np.array([[0.0, 0.0]], dtype=np.float32)] * 3)
+    y_p = np.dstack([np.array([[3.0, 4.0]], dtype=np.float32)] * 3)
+    compressed_original = np.array([[1.0, 1.0]], dtype=np.float32)
+    compressed_protected = np.array([[4.0, 5.0]], dtype=np.float32)
+
+    monkeypatch.setattr(
+        "app.protection.engine.cv2.cvtColor",
+        lambda image, code: y_o if image is original else y_p,
+    )
+    monkeypatch.setattr(
+        evaluator,
+        "_jpeg_roundtrip_y",
+        lambda image, quality, resize=None: compressed_original if image is original else compressed_protected,
+    )
+
+    results = evaluator._y_npr_suite(original, protected)
+
+    assert all(value == 100.0 for value in results.values())
+
+
+def test_alignment_metrics_compare_original_and_protected_landmarks():
+    original_landmarks = np.array([[0, 0], [10, 0], [5, 5], [2, 10], [8, 10]], dtype=np.float32)
+    protected_landmarks = original_landmarks.copy()
+    protected_landmarks[2] += np.array([3, 0], dtype=np.float32)
+
+    metrics = EvaluationEngine(detector=NoFaceDetector())._alignment_metrics(
+        FaceDetection((0, 0, 10, 10), original_landmarks, 0.99),
+        FaceDetection((0, 0, 10, 10), protected_landmarks, 0.99),
+    )
+
+    assert metrics["landmark_shift_px"] > 0
+    assert metrics["alignment_error"] > 0
+    assert metrics["alignment_error_pct_change"] > 0

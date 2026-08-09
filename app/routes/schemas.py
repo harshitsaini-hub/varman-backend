@@ -26,6 +26,10 @@ class ImageResponse(BaseModel):
     protected_size_bytes: int | None = None
     ssim_score: float | None = None
     psnr_score: float | None = None
+    face_ssim_score: float | None = None
+    linf_score: float | None = None
+    guardrail_satisfied: bool = False
+    attenuation_factor: float | None = None
     epsilon_used: float | None = None
     processing_time_ms: int | None = None
     error_message: str | None = None
@@ -42,6 +46,10 @@ class ImageStatusResponse(BaseModel):
     status: str
     ssim_score: float | None = None
     psnr_score: float | None = None
+    face_ssim_score: float | None = None
+    linf_score: float | None = None
+    guardrail_satisfied: bool = False
+    attenuation_factor: float | None = None
     processing_time_ms: int | None = None
     error_message: str | None = None
     vault_sealed: bool = False

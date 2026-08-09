@@ -44,7 +44,8 @@ class Settings(BaseSettings):
     eot_iterations: int = 100
     epsilon_max: float = 0.0313  # 8/255 — Final compromise bound between visual quality and disruption
     ssim_min_threshold: float = 0.98
-    device: str = "cpu"  # "cpu" or "cuda"
+    device: str = "cpu"  # retained for compatibility with existing deployments
+    yunet_model_path: str = "weights/face_detection_yunet_2023mar.onnx"
 
     # ── CORS ───────────────────────────────────────────────────────────────
     cors_origins: str = "http://localhost:5173"

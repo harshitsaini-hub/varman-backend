@@ -105,7 +105,11 @@ async def _run_protection_task(
                 img.status = metrics.get("status", "completed") 
                 img.ssim_score = metrics.get("ssim")  
                 img.psnr_score = metrics.get("psnr") 
-                img.epsilon_used = metrics.get("epsilon_used") 
+                img.face_ssim_score = metrics.get("face_ssim")
+                img.linf_score = metrics.get("linf")
+                img.guardrail_satisfied = bool(metrics.get("guardrail_satisfied", False))
+                img.attenuation_factor = metrics.get("attenuation_factor")
+                img.epsilon_used = None
                 img.processing_time_ms = elapsed_ms
                 img.original_path = None  # Privacy: path cleared
                 if os.path.exists(protected_path):

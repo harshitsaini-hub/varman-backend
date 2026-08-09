@@ -1,225 +1,341 @@
-import os
-import torch
-import torchvision.transforms.functional as TF
-import torchvision.transforms as T
-import open_clip
-import torchvision.models as models
+"""Varman protection/evaluation orchestration.
+
+This module intentionally keeps the locked architecture separated:
+ProtectionEngine generates the protected image, EvaluationEngine measures it,
+and protect_image_pipeline orchestrates both for the API.
+"""
+
+from __future__ import annotations
+
+import io
 import logging
+import math
+import os
+import time
+from dataclasses import dataclass
+from typing import Any
+
+import cv2
+import numpy as np
+from PIL import Image
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# ── Configuration ──────────────────────────────────────────────────────────────
-EPSILON = settings.epsilon_max  # L∞ bound — tune via .env
+PRESET_THRESHOLDS = {
+    "light": 0.95,
+    "balanced": 0.92,
+    "aggressive": 0.90,
+}
+FACE_SSIM_THRESHOLD = 0.90
+DEFAULT_PRESET = "balanced"
 
 
-def protect_image_pipeline(
-    original_path: str,
-    protected_path: str,
-    strength: float = 0.5,
-):
-    """
-    Varman Semantic Disruption Engine — CLIP PGD Attack.
+@dataclass(frozen=True)
+class FaceDetection:
+    bbox: tuple[float, float, float, float]
+    landmarks: np.ndarray
+    score: float
 
-    Pipeline:
-      1. Load image at full resolution (no downscaling).
-      2. Load OpenCLIP ViT-B/32 surrogate.
-      3. Extract original CLIP embedding.
-      4. PGD loop (N iterations):
-           a. Forward pass through CLIP.
-           b. Compute cosine similarity loss (minimize similarity).
-           c. Backprop → signed gradient step → L∞ clamp.
-           d. Log cosine similarity at intervals.
-      5. Save as lossless PNG.
 
-    Key design decisions:
-      - No DiffJPEG: we are optimising for direct upload, not compression survival.
-      - No face masking: MLLMs interpret the whole scene semantically.
-      - No downscaling: perturbation is applied at native resolution.
-      - Dynamic alpha: step size scales with epsilon for proper convergence.
-      - CLIP ViT-B/32 only: single surrogate for clean v1.0 isolation.
-    """
-    device_str = settings.device
-    device = torch.device(device_str)
-    logger.info(f"[Varman] Starting semantic disruption: {original_path} on {device}")
+@dataclass(frozen=True)
+class ProtectionPreset:
+    name: str
+    global_ssim_threshold: float
+    warp_fraction: float
+    dct_strength: float
+    enable_grid_layer: bool = False
 
-    # ── 1. Load image at full resolution ──────────────────────────────────────
-    from PIL import Image
-    img = Image.open(original_path).convert("RGB")
-    img_tensor = TF.to_tensor(img).unsqueeze(0).to(device)  # (1, 3, H, W) in [0, 1]
 
-    logger.info(f"[Varman] Image loaded: {img.size[0]}x{img.size[1]} — no downscaling applied.")
+PRESETS = {
+    "light": ProtectionPreset("light", PRESET_THRESHOLDS["light"], 0.005, 1.4),
+    "balanced": ProtectionPreset("balanced", PRESET_THRESHOLDS["balanced"], 0.010, 2.2),
+    "aggressive": ProtectionPreset("aggressive", PRESET_THRESHOLDS["aggressive"], 0.015, 3.0),
+}
 
-    # ── 2. Load OpenCLIP ViT-B/32 ─────────────────────────────────────────────
-    logger.info("[Varman] Loading OpenCLIP ViT-B/32 (laion2b_s34b_b79k)...")
-    clip_model, _, clip_preprocess = open_clip.create_model_and_transforms(
-        'ViT-B-32', pretrained='laion2b_s34b_b79k', device=device
-    )
-    clip_model.eval()
-    for param in clip_model.parameters():
-        param.requires_grad = False
 
-    # CLIP normalisation constants
-    clip_mean = torch.tensor([0.48145466, 0.4578275, 0.40821073]).view(1, 3, 1, 1).to(device)
-    clip_std  = torch.tensor([0.26862954, 0.26130258, 0.27577711]).view(1, 3, 1, 1).to(device)
+class YuNetFaceDetector:
+    """YuNet ONNX face detector with conditional multi-scale YuNet fallback."""
 
-    def clip_encode(x: torch.Tensor) -> torch.Tensor:
-        """Encode a (1, 3, H, W) [0,1] tensor through CLIP → (1, 512) embedding."""
-        x_resized = torch.nn.functional.interpolate(
-            x, size=(224, 224), mode='bilinear', align_corners=False
-        )
-        x_norm = (x_resized - clip_mean) / clip_std
-        return clip_model.encode_image(x_norm)  # type: ignore
+    def __init__(self, model_path: str | None = None, confidence_threshold: float = 0.9):
+        self.model_path = model_path or getattr(settings, "yunet_model_path", "weights/face_detection_yunet_2023mar.onnx")
+        self.confidence_threshold = confidence_threshold
+        self._available = bool(os.path.exists(self.model_path) and hasattr(cv2, "FaceDetectorYN_create"))
 
-    # ── 2b. Load ResNet50 (CNN Surrogate) ─────────────────────────────────────
-    logger.info("[Varman] Loading ResNet50 (IMAGENET1K_V1)...")
-    resnet_model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1).to(device)
-    resnet_model.eval()
-    for param in resnet_model.parameters():
-        param.requires_grad = False
+    @property
+    def available(self) -> bool:
+        return self._available
 
-    resnet_mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(device)
-    resnet_std  = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(device)
+    def detect(self, image_bgr: np.ndarray) -> FaceDetection | None:
+        if not self._available:
+            logger.warning("YuNet model unavailable at %s; face warp/alignment metrics disabled", self.model_path)
+            return None
+        h, w = image_bgr.shape[:2]
+        primary = self._detect_at_size(image_bgr, (w, h), 1.0)
+        if primary is not None:
+            return primary
+        for scale in (1.25, 1.5, 2.0, 0.75):
+            resized = cv2.resize(image_bgr, (max(1, int(w * scale)), max(1, int(h * scale))), interpolation=cv2.INTER_LINEAR)
+            found = self._detect_at_size(resized, (resized.shape[1], resized.shape[0]), scale)
+            if found is not None:
+                return found
+        return None
 
-    def resnet_encode(x: torch.Tensor) -> torch.Tensor:
-        """Encode a (1, 3, H, W) [0,1] tensor through ResNet50 → (1, 1000) logits."""
-        x_resized = torch.nn.functional.interpolate(
-            x, size=(224, 224), mode='bilinear', align_corners=False
-        )
-        x_norm = (x_resized - resnet_mean) / resnet_std
-        return resnet_model(x_norm)
+    def _detect_at_size(self, image_bgr: np.ndarray, size: tuple[int, int], scale: float) -> FaceDetection | None:
+        detector = cv2.FaceDetectorYN_create(self.model_path, "", size, self.confidence_threshold, 0.3, 5000)
+        _, faces = detector.detect(image_bgr)
+        if faces is None or len(faces) == 0:
+            return None
+        face = max(faces, key=lambda row: row[-1])
+        x, y, bw, bh = (float(v) / scale for v in face[:4])
+        landmarks = (face[4:14].reshape(5, 2) / scale).astype(np.float32)
+        return FaceDetection((x, y, bw, bh), landmarks, float(face[-1]))
 
-    # ── 3. Extract original/target embeddings ─────────────────────────────────────────
-    with torch.no_grad():
-        orig_clip_embedding = clip_encode(img_tensor)
-        orig_resnet_embedding = resnet_encode(img_tensor)
-        
-        # TARGETED ATTACK: Define malicious target semantics
-        tokenizer = open_clip.get_tokenizer('ViT-B-32')
-        text_tokens = tokenizer(["a blurry photo of a completely empty white room"]).to(device)
-        target_clip_embedding = clip_model.encode_text(text_tokens)
 
-    # ── 4. PGD optimisation loop (Targeted + EoT) ──────────────────────────────────────────────
-    iterations = settings.eot_iterations
-    # Dynamic alpha: scale step size to epsilon and iterations for proper convergence.
-    # Standard PGD heuristic: alpha = 2.5 * epsilon / iterations
-    alpha = 2.5 * EPSILON / iterations
+class ProtectionEngine:
+    """Generate protected images using the locked Varman protection pipeline."""
 
-    delta = torch.zeros_like(img_tensor, requires_grad=True, device=device)
+    def __init__(self, detector: YuNetFaceDetector | None = None, min_attenuation: float = 0.125):
+        self.detector = detector or YuNetFaceDetector()
+        self.min_attenuation = min_attenuation
 
-    logger.info(
-        f"[Varman] PGD loop: {iterations} iters, "
-        f"ε={EPSILON:.5f} ({EPSILON * 255:.1f}/255), "
-        f"α={alpha:.6f} ({alpha * 255:.3f}/255)"
-    )
+    def protect(self, original_path: str, protected_path: str, preset_name: str = DEFAULT_PRESET) -> dict[str, Any]:
+        image_bgr = cv2.imread(original_path, cv2.IMREAD_COLOR)
+        if image_bgr is None:
+            raise ValueError(f"Unable to read image: {original_path}")
+        preset = PRESETS.get(preset_name.lower(), PRESETS[DEFAULT_PRESET])
+        detection_start = time.perf_counter()
+        face = self.detector.detect(image_bgr)
+        detection_ms = int((time.perf_counter() - detection_start) * 1000)
+        timings: dict[str, int] = {}
+        t0 = time.perf_counter()
+        attenuation = 1.0
+        best = image_bgr.copy()
+        best_metrics: dict[str, float | None] = {}
+        guardrail_satisfied = False
+        while attenuation >= self.min_attenuation - 1e-9:
+            candidate = image_bgr.copy()
+            tw = time.perf_counter()
+            if face is not None:
+                candidate = self._apply_face_warp(
+                    candidate,
+                    face,
+                    preset.warp_fraction,
+                    attenuation,
+                )
+            timings["face_warp_ms"] = int((time.perf_counter() - tw) * 1000)
+            td = time.perf_counter()
+            candidate = self._apply_y_channel_dct(candidate, preset.dct_strength * attenuation)
+            timings["y_dct_ms"] = int((time.perf_counter() - td) * 1000)
+            tg = time.perf_counter()
+            if preset.enable_grid_layer:
+                candidate = self._apply_grid_layer(candidate, attenuation)
+            timings["grid_ms"] = int((time.perf_counter() - tg) * 1000)
+            metrics = EvaluationEngine(detector=self.detector).compute_quality(image_bgr, candidate, face)
+            best, best_metrics = candidate, metrics
+            global_ok = (metrics["global_ssim"] or 0.0) >= preset.global_ssim_threshold
+            face_ok = metrics["face_ssim"] is None or metrics["face_ssim"] >= FACE_SSIM_THRESHOLD
+            if global_ok and face_ok:
+                guardrail_satisfied = True
+                break
+            attenuation *= 0.5
+        timings["quality_guardrail_ms"] = int((time.perf_counter() - t0) * 1000)
+        timings["face_detection_ms"] = detection_ms
+        out_path = os.path.splitext(protected_path)[0] + ".png"
+        Image.fromarray(cv2.cvtColor(best, cv2.COLOR_BGR2RGB)).save(out_path)
+        return {
+            "output_path": out_path,
+            "face_detected": face is not None,
+            "face_bbox": face.bbox if face else None,
+            "guardrail_satisfied": guardrail_satisfied,
+            "attenuation_factor": attenuation,
+            "preset": preset.name,
+            "enable_grid_layer": preset.enable_grid_layer,
+            **best_metrics,
+            "timings": timings,
+        }
 
-    cosine_log = []
-    
-    # Define EoT random augmentations
-    eot_transform = T.Compose([
-        T.RandomResizedCrop(size=(img.size[1], img.size[0]), scale=(0.8, 1.0)),
-        T.RandomApply([T.GaussianBlur(kernel_size=3)], p=0.3)
-    ])
+    def _apply_face_warp(
+        self,
+        image_bgr: np.ndarray,
+        face: FaceDetection,
+        displacement_fraction: float,
+        attenuation: float = 1.0,
+    ) -> np.ndarray:
+        x, y, w, h = face.bbox
+        displacement_px = w * displacement_fraction * attenuation
+        yy, xx = np.mgrid[0:image_bgr.shape[0], 0:image_bgr.shape[1]].astype(np.float32)
+        cx, cy = x + w / 2.0, y + h / 2.0
+        sigma_x, sigma_y = max(w * 0.42, 1.0), max(h * 0.42, 1.0)
+        mask = np.exp(-(((xx - cx) ** 2) / (2 * sigma_x**2) + ((yy - cy) ** 2) / (2 * sigma_y**2))).astype(np.float32)
+        dx = displacement_px * np.sin((yy - cy) / max(h, 1.0) * math.pi) * mask
+        dy = displacement_px * np.cos((xx - cx) / max(w, 1.0) * math.pi) * mask
+        map_x = (xx + dx).astype(np.float32)
+        map_y = (yy + dy).astype(np.float32)
+        return cv2.remap(image_bgr, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT101)
 
-    for i in range(iterations):
-        x_adv = torch.clamp(img_tensor + delta, 0.0, 1.0)
-        
-        # Apply EoT
-        x_adv_eot = eot_transform(x_adv)
-        
-        adv_clip = clip_encode(x_adv_eot)
-        adv_resnet = resnet_encode(x_adv_eot)
+    def _apply_y_channel_dct(self, image_bgr: np.ndarray, strength: float) -> np.ndarray:
+        ycrcb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2YCrCb).astype(np.float32)
+        y = ycrcb[:, :, 0]
+        h, w = y.shape
+        out = y.copy()
+        for r in range(0, h - h % 8, 8):
+            for c in range(0, w - w % 8, 8):
+                block = y[r:r+8, c:c+8] - 128.0
+                coeff = cv2.dct(block)
+                phase = 1.0 if ((r // 8) * 3 + (c // 8) * 5) % 2 == 0 else -1.0
+                spatial = 0.65 + 0.35 * math.sin((r + 17) * 0.071 + (c + 11) * 0.043)
+                for u, v in ((2, 3), (3, 2), (3, 4), (4, 3)):
+                    coeff[u, v] += phase * strength * spatial * (1.0 + 0.1 * (u - v))
+                out[r:r+8, c:c+8] = cv2.idct(coeff) + 128.0
+        ycrcb[:, :, 0] = np.clip(out, 0, 255)
+        return cv2.cvtColor(ycrcb.astype(np.uint8), cv2.COLOR_YCrCb2BGR)
 
-        # Objective: 
-        # 1. MAXIMIZE similarity to target text (Minimize 1 - cos_sim_target)
-        # 2. MINIMIZE similarity to original image in CLIP (Minimize cos_sim_orig_clip)
-        # 3. MINIMIZE similarity to original image in ResNet (Minimize cos_sim_resnet)
-        cos_sim_target = torch.nn.functional.cosine_similarity(adv_clip, target_clip_embedding).mean()
-        cos_sim_orig_clip = torch.nn.functional.cosine_similarity(adv_clip, orig_clip_embedding).mean()
-        cos_sim_resnet = torch.nn.functional.cosine_similarity(adv_resnet, orig_resnet_embedding).mean()
-        
-        # Loss components (all should be minimized)
-        loss_clip_target = 1.0 - cos_sim_target      # Push towards target (ideal 0)
-        loss_clip_orig = cos_sim_orig_clip           # Push away from orig (ideal -1)
-        loss_resnet = cos_sim_resnet                 # Push away from orig (ideal -1)
-        
-        # We combine the two CLIP objectives:
-        loss_clip_combined = loss_clip_target + loss_clip_orig
-        
-        # Dynamic Weighting: The model that is further from its goal gets more weight.
-        with torch.no_grad():
-            # Distances from ideal states
-            dist_clip = loss_clip_target.abs() + (1.0 + cos_sim_orig_clip).abs() 
-            dist_resnet = (1.0 + cos_sim_resnet).abs() 
-            total_dist = dist_clip + dist_resnet + 1e-6
-            w_clip = dist_clip / total_dist
-            w_resnet = dist_resnet / total_dist
-            
-        loss = w_clip * loss_clip_combined + w_resnet * loss_resnet
+    def _apply_grid_layer(self, image_bgr: np.ndarray, attenuation: float) -> np.ndarray:
+        out = image_bgr.copy().astype(np.int16)
+        out[::32, :, :] += int(2 * attenuation)
+        out[:, ::32, :] -= int(2 * attenuation)
+        return np.clip(out, 0, 255).astype(np.uint8)
 
-        loss.backward()
 
-        with torch.no_grad():
-            if delta.grad is not None:
-                # Signed gradient step (PGD)
-                delta.data -= alpha * delta.grad.sign()
-                # L∞ clamp — the hard ceiling
-                delta.data.clamp_(-EPSILON, EPSILON)
-                # Ensure the full image stays in [0, 1]
-                delta.data = torch.clamp(img_tensor + delta.data, 0.0, 1.0) - img_tensor
-                delta.grad.zero_()
+class EvaluationEngine:
+    """Independently evaluate protected images produced by ProtectionEngine."""
 
-        # Log at intervals
-        if i % 10 == 0 or i == iterations - 1:
-            with torch.no_grad():
-                x_eval = torch.clamp(img_tensor + delta, 0.0, 1.0)
-                eval_clip = clip_encode(x_eval)
-                eval_resnet = resnet_encode(x_eval)
-                
-                current_cos_orig_clip = torch.nn.functional.cosine_similarity(eval_clip, orig_clip_embedding).mean().item()
-                current_cos_target = torch.nn.functional.cosine_similarity(eval_clip, target_clip_embedding).mean().item()
-                current_cos_resnet = torch.nn.functional.cosine_similarity(eval_resnet, orig_resnet_embedding).mean().item()
-                
-            cosine_log.append((i, current_cos_orig_clip, current_cos_target, current_cos_resnet))
-            logger.info(f"  [iter {i:3d}] Target_cos = {current_cos_target:.4f} | OrigCLIP_cos = {current_cos_orig_clip:.4f} | ResNet_cos = {current_cos_resnet:.4f}")
+    def __init__(self, detector: YuNetFaceDetector | None = None):
+        self.detector = detector or YuNetFaceDetector()
 
-    # ── 5. Save as lossless PNG ───────────────────────────────────────────────
-    with torch.no_grad():
-        final_adv = torch.clamp(img_tensor + delta, 0.0, 1.0)
+    def evaluate(self, original_path: str, protected_path: str) -> dict[str, Any]:
+        original = cv2.imread(original_path, cv2.IMREAD_COLOR)
+        protected = cv2.imread(protected_path, cv2.IMREAD_COLOR)
+        if original is None or protected is None:
+            raise ValueError("Unable to read original or protected image for evaluation")
+        if original.shape != protected.shape:
+            protected = cv2.resize(protected, (original.shape[1], original.shape[0]), interpolation=cv2.INTER_LINEAR)
+        original_face = self.detector.detect(original)
+        protected_face = self.detector.detect(protected)
+        quality = self.compute_quality(original, protected, original_face)
+        return {**quality, "y_npr": self._y_npr_suite(original, protected), "alignment": self._alignment_metrics(original_face, protected_face)}
 
-    final_img = TF.to_pil_image(final_adv.squeeze(0).cpu())
+    def compute_quality(self, original: np.ndarray, protected: np.ndarray, face: FaceDetection | None) -> dict[str, float | None]:
+        return {
+            "global_ssim": self._ssim(original, protected),
+            "face_ssim": self._expanded_face_ssim(original, protected, face),
+            "psnr": self._psnr(original, protected),
+            "linf": float(np.max(np.abs(original.astype(np.int16) - protected.astype(np.int16)))),
+        }
 
-    # Force PNG extension for lossless output
-    png_path = os.path.splitext(protected_path)[0] + ".png"
-    final_img.save(png_path)
+    def _expanded_face_ssim(self, original: np.ndarray, protected: np.ndarray, face: FaceDetection | None) -> float | None:
+        if face is None:
+            return None
+        x, y, w, h = face.bbox
+        cx, cy = x + w / 2, y + h / 2
+        ew, eh = w * 1.2, h * 1.2
+        x0, y0 = max(0, int(cx - ew / 2)), max(0, int(cy - eh / 2))
+        x1, y1 = min(original.shape[1], int(cx + ew / 2)), min(original.shape[0], int(cy + eh / 2))
+        if x1 - x0 < 8 or y1 - y0 < 8:
+            return None
+        return self._ssim(original[y0:y1, x0:x1], protected[y0:y1, x0:x1])
 
-    logger.info(f"[Varman] Saved perturbed image (lossless PNG): {png_path}")
+    def _ssim(self, a: np.ndarray, b: np.ndarray) -> float:
+        if a.ndim == 3:
+            return float(np.mean([self._ssim(a[:, :, channel], b[:, :, channel]) for channel in range(a.shape[2])]))
+        a = a.astype(np.float64); b = b.astype(np.float64)
+        c1, c2 = (0.01 * 255) ** 2, (0.03 * 255) ** 2
+        mu_a = cv2.GaussianBlur(a, (7, 7), 1.5); mu_b = cv2.GaussianBlur(b, (7, 7), 1.5)
+        sigma_a = cv2.GaussianBlur(a*a, (7, 7), 1.5) - mu_a*mu_a
+        sigma_b = cv2.GaussianBlur(b*b, (7, 7), 1.5) - mu_b*mu_b
+        sigma_ab = cv2.GaussianBlur(a*b, (7, 7), 1.5) - mu_a*mu_b
+        score = ((2*mu_a*mu_b + c1) * (2*sigma_ab + c2)) / ((mu_a**2 + mu_b**2 + c1) * (sigma_a + sigma_b + c2))
+        return float(np.mean(score))
 
-    # ── 6. Quality metrics ────────────────────────────────────────────────────
-    from app.protection.quality import compute_quality_metrics
-    ssim_score, psnr_score = compute_quality_metrics(original_path, png_path)
+    def _psnr(self, a: np.ndarray, b: np.ndarray) -> float:
+        mse = float(np.mean((a.astype(np.float32) - b.astype(np.float32)) ** 2))
+        return float("inf") if mse == 0 else float(20 * math.log10(255.0 / math.sqrt(mse)))
 
-    final_orig_clip_cos = cosine_log[-1][1] if cosine_log else 1.0
-    final_target_cos = cosine_log[-1][2] if cosine_log else 0.0
-    final_resnet_cos = cosine_log[-1][3] if cosine_log else 1.0
-    status = "completed" if ssim_score >= 0.95 else "quality_warning"
+    def _jpeg_roundtrip_y(self, image_bgr: np.ndarray, quality: int, resize: float | None = None) -> np.ndarray:
+        source = image_bgr
+        if resize is not None:
+            h, w = image_bgr.shape[:2]
+            small = cv2.resize(image_bgr, (max(1, int(w * resize)), max(1, int(h * resize))), interpolation=cv2.INTER_AREA)
+            source = cv2.resize(small, (w, h), interpolation=cv2.INTER_LINEAR)
+        rgb = cv2.cvtColor(source, cv2.COLOR_BGR2RGB)
+        buf = io.BytesIO()
+        Image.fromarray(rgb).save(buf, format="JPEG", quality=quality)
+        buf.seek(0)
+        arr = np.array(Image.open(buf).convert("RGB"))
+        return cv2.cvtColor(arr, cv2.COLOR_RGB2YCrCb)[:, :, 0].astype(np.float32)
 
-    logger.info(
-        f"[Varman] {status.upper()} — "
-        f"SSIM={ssim_score:.4f}, PSNR={psnr_score:.2f}dB, "
-        f"Target_cos={final_target_cos:.4f}, OrigCLIP_cos={final_orig_clip_cos:.4f}, ResNet_cos={final_resnet_cos:.4f}, ε={EPSILON:.5f}"
-    )
+    def _y_npr_suite(self, original: np.ndarray, protected: np.ndarray) -> dict[str, float]:
+        y_o = cv2.cvtColor(original, cv2.COLOR_BGR2YCrCb)[:, :, 0].astype(np.float32)
+        y_p = cv2.cvtColor(protected, cv2.COLOR_BGR2YCrCb)[:, :, 0].astype(np.float32)
+        denom = float(np.linalg.norm(y_p - y_o))
+        tiers = {"jpeg_q95": (95, None), "jpeg_q85": (85, None), "jpeg_q75": (75, None), "jpeg_q60": (60, None), "resize_0_75_jpeg_q75": (75, 0.75)}
+        if denom == 0:
+            return {name: 0.0 for name in tiers}
+        results = {}
+        for name, (quality, resize) in tiers.items():
+            c0 = self._jpeg_roundtrip_y(original, quality, resize)
+            c = self._jpeg_roundtrip_y(protected, quality, resize)
+            results[name] = float(np.linalg.norm(c - c0) / denom * 100.0)
+        return results
 
-    return {
-        "ssim": ssim_score,
-        "psnr": psnr_score,
-        "clip_cosine_final": final_orig_clip_cos,
-        "target_cosine_final": final_target_cos,
-        "resnet_cosine_final": final_resnet_cos,
-        "cosine_log": cosine_log,
-        "epsilon_used": EPSILON,
-        "iterations": iterations,
-        "status": status,
-        "output_path": png_path,
-    }
+    def _alignment_metrics(self, original_face: FaceDetection | None, protected_face: FaceDetection | None) -> dict[str, float | None]:
+        if original_face is None or protected_face is None:
+            return {"landmark_shift_px": None, "alignment_error": None, "alignment_error_pct_change": None}
+        orig = original_face.landmarks.astype(np.float32)
+        prot = protected_face.landmarks.astype(np.float32)
+        shifts = np.linalg.norm(prot - orig, axis=1)
+        aligned_prot = self._similarity_align(prot, orig)
+        alignment_error = float(np.sqrt(np.mean(np.sum((aligned_prot - orig) ** 2, axis=1))))
+        eye_distance = float(np.linalg.norm(orig[1] - orig[0]))
+        pct = None if eye_distance == 0 else float(alignment_error / eye_distance * 100.0)
+        return {
+            "landmark_shift_px": float(np.mean(shifts)),
+            "alignment_error": alignment_error,
+            "alignment_error_pct_change": pct,
+        }
+
+    def _similarity_align(self, source: np.ndarray, target: np.ndarray) -> np.ndarray:
+        source_center = source.mean(axis=0, keepdims=True)
+        target_center = target.mean(axis=0, keepdims=True)
+        source_zero = source - source_center
+        target_zero = target - target_center
+        source_norm = float(np.linalg.norm(source_zero))
+        target_norm = float(np.linalg.norm(target_zero))
+        if source_norm == 0 or target_norm == 0:
+            return np.repeat(target_center, len(source), axis=0)
+        source_unit = source_zero / source_norm
+        target_unit = target_zero / target_norm
+        u, _, vt = np.linalg.svd(source_unit.T @ target_unit)
+        rotation = u @ vt
+        scale = target_norm / source_norm
+        return (source_zero @ rotation) * scale + target_center
+
+
+def strength_to_preset(strength: float) -> str:
+    if strength < 0.34:
+        return "light"
+    if strength > 0.67:
+        return "aggressive"
+    return "balanced"
+
+
+def protect_image_pipeline(original_path: str, protected_path: str, strength: float = 0.5) -> dict[str, Any]:
+    """Orchestrate protection then independent evaluation."""
+    t0 = time.perf_counter()
+    preset = strength_to_preset(strength)
+    detector = YuNetFaceDetector()
+    protection = ProtectionEngine(detector=detector).protect(original_path, protected_path, preset)
+    timings = protection.pop("timings", {})
+    evaluation_start = time.perf_counter()
+    evaluation = EvaluationEngine(detector=detector).evaluate(original_path, protection["output_path"])
+    timings["evaluation_ms"] = int((time.perf_counter() - evaluation_start) * 1000)
+    timings["total_ms"] = int((time.perf_counter() - t0) * 1000)
+    result = {**protection, **evaluation, "ssim": evaluation["global_ssim"], "status": "completed", "timings": timings}
+    return result
+
+
+def compute_quality_metrics(original_path: str, protected_path: str) -> tuple[float, float]:
+    metrics = EvaluationEngine().evaluate(original_path, protected_path)
+    return float(metrics["global_ssim"]), float(metrics["psnr"])
