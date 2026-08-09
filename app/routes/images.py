@@ -56,6 +56,8 @@ async def _run_protection_task(
     original_path: str,
     protected_path: str,
     strength: float,
+    preset_name: str = "Balanced",
+    enable_grid: bool = False,
 ) -> None:
     """Acquire the GPU semaphore, run protection off-thread, update the DB."""
     from app.database import async_session  # local to avoid circular
@@ -80,8 +82,8 @@ async def _run_protection_task(
                 protect_image_pipeline,
                 original_path,
                 protected_path,
-                preset_name="Balanced",
-                enable_grid=False,
+                preset_name=preset_name,
+                enable_grid=enable_grid,
             )
             out_png_path, combined_metrics = await loop.run_in_executor(_executor, fn)
             elapsed_ms = int((time.perf_counter() - t0) * 1000)
@@ -114,7 +116,9 @@ async def _run_protection_task(
                 img.linf_score = float(eval_m.get("l_inf_max_shift", 0)) if eval_m.get("l_inf_max_shift") is not None else None
                 img.guardrail_satisfied = bool(prot_m.get("guardrail_satisfied", True))
                 img.attenuation_factor = float(prot_m.get("attenuation_factor", 1.0)) if prot_m.get("attenuation_factor") is not None else None
-                img.epsilon_used = eval_m.get("avg_y_npr_percent")
+                img.avg_y_npr = eval_m.get("avg_y_npr_percent")
+                img.landmark_shift_delta_px = eval_m.get("landmark_shift_delta_px")
+                img.alignment_error_pct_change = eval_m.get("alignment_error_pct_change")
                 img.processing_time_ms = elapsed_ms
                 img.original_path = None  # Privacy: path cleared
                 if os.path.exists(out_png_path):
@@ -150,6 +154,8 @@ async def protect_images(
     current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
     protection_strength: float = Form(default=0.5),
+    preset_name: str = Form(default="Balanced"),
+    enable_grid: bool = Form(default=False),
 ):
     """Accept one or more image uploads, queue them for protection."""
     validate_upload_count(files)
@@ -183,6 +189,7 @@ async def protect_images(
             height=height,
             original_size_bytes=file_size,
             protection_strength=protection_strength,
+            preset_name=preset_name,
             watermark_enabled=False,
             watermark_id="",
             eot_iterations=settings.eot_iterations,
@@ -200,9 +207,11 @@ async def protect_images(
         asyncio.create_task(
             _run_protection_task(
                 image_id=record.id,
-                original_path=record.original_path, #typpe:ignore
+                original_path=record.original_path,  # type: ignore
                 protected_path=os.path.join(user_dir, f"{record.id}_protected.png"),
                 strength=record.protection_strength,
+                preset_name=preset_name,
+                enable_grid=enable_grid,
             )
         )
 

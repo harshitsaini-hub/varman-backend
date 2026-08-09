@@ -52,7 +52,8 @@ class ProtectedImage(Base):
     protection_strength: Mapped[float] = mapped_column(
         Float, nullable=False, default=0.5
     )
-    epsilon_used: Mapped[float] = mapped_column(Float, nullable=True)
+    preset_name: Mapped[str] = mapped_column(String(20), nullable=False, default="Balanced")
+    epsilon_used: Mapped[float] = mapped_column(Float, nullable=True)  # Legacy — kept for DB compat
     eot_iterations: Mapped[int] = mapped_column(Integer, nullable=False, default=50)
     watermark_id: Mapped[str] = mapped_column(String(36), nullable=False, default="")
     watermark_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -63,8 +64,11 @@ class ProtectedImage(Base):
     psnr_score: Mapped[float] = mapped_column(Float, nullable=True)
     face_ssim_score: Mapped[float] = mapped_column(Float, nullable=True)
     linf_score: Mapped[float] = mapped_column(Float, nullable=True)
+    avg_y_npr: Mapped[float] = mapped_column(Float, nullable=True)
     guardrail_satisfied: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     attenuation_factor: Mapped[float] = mapped_column(Float, nullable=True)
+    landmark_shift_delta_px: Mapped[float] = mapped_column(Float, nullable=True)
+    alignment_error_pct_change: Mapped[float] = mapped_column(Float, nullable=True)
 
     # ── Processing state ───────────────────────────────────────────────
     status: Mapped[str] = mapped_column(

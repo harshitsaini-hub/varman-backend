@@ -26,8 +26,9 @@ def test_guardrail_reports_unsatisfied_at_minimum_attenuation(monkeypatch, tmp_p
     assert meta["attenuation_factor"] <= 0.1
 
 
-def test_no_face_evaluation_keeps_alignment_metrics_null():
+def test_no_face_evaluation_keeps_alignment_metrics_null(monkeypatch):
     evaluator = EvaluationEngine()
+    monkeypatch.setattr(evaluator, "_detect_landmarks_reproducible", lambda img: None)
     metrics = evaluator._compute_alignment_effectiveness(np.zeros((32, 32, 3), dtype=np.uint8), np.zeros((32, 32, 3), dtype=np.uint8))
     assert metrics["landmark_shift_delta_px"] == 0.0
     assert metrics["alignment_error_orig"] == 0.0
