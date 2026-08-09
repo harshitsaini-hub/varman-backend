@@ -30,7 +30,8 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from app.protection.engine import EvaluationEngine, ProtectionEngine, YuNetFaceDetector
+from app.protection.protection_engine import ProtectionEngine
+from app.protection.evaluation_engine import EvaluationEngine
 
 PRESET_ORDER = ("light", "balanced", "aggressive")
 NPR_ORDER = ("jpeg_q95", "jpeg_q85", "jpeg_q75", "jpeg_q60", "resize_0_75_jpeg_q75")

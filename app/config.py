@@ -40,12 +40,18 @@ class Settings(BaseSettings):
     max_upload_bytes: int = 15 * 1024 * 1024  # 15 MB
     allowed_extensions: str = "jpg,jpeg,png,webp"
 
-    # ── Protection Engine ──────────────────────────────────────────────────
-    eot_iterations: int = 100
-    epsilon_max: float = 0.0313  # 8/255 — Final compromise bound between visual quality and disruption
-    ssim_min_threshold: float = 0.98
-    device: str = "cpu"  # retained for compatibility with existing deployments
-    yunet_model_path: str = "weights/face_detection_yunet_2023mar.onnx"
+    # ── Protection Engine (Lightweight Engine) ──────────────────────────────
+    default_preset: str = "Balanced"  # "Light", "Balanced", "Aggressive"
+    enable_grid_layer: bool = False   # Optional low-priority grid layer
+    min_global_ssim: float = 0.90
+    min_face_ssim: float = 0.90
+    cv2_threads: int = 1
+    onnx_threads: int = 1
+    device: str = "cpu"  # "cpu" or "cuda" (for ONNX CUDAExecutionProvider)
+    yunet_model_path: str = "models/face_detection_yunet_2023mar.onnx"
+    eot_iterations: int = 50
+    epsilon_max: float = 0.0313
+    ssim_min_threshold: float = 0.90
 
     # ── CORS ───────────────────────────────────────────────────────────────
     cors_origins: str = "http://localhost:5173"

@@ -28,7 +28,6 @@ from app.config import settings
 from app.database import get_db
 from app.models.protected_image import ProtectedImage
 from app.models.user import User
-from app.protection.engine import protect_image_pipeline
 from app.routes.schemas import ImageListResponse, ImageResponse, ImageStatusResponse
 from app.uploads import get_image_dimensions, save_upload_with_limits, validate_upload_count
 
@@ -76,14 +75,17 @@ async def _run_protection_task(
         # Run the heavy pipeline off the event loop
         t0 = time.perf_counter()
         try:
+            from app.protection.engine import protect_image_pipeline
             fn = functools.partial(
                 protect_image_pipeline,
                 original_path,
                 protected_path,
-                strength=strength,
+                preset_name="Balanced",
+                enable_grid=False,
             )
-            metrics = await loop.run_in_executor(_executor, fn)
+            out_png_path, combined_metrics = await loop.run_in_executor(_executor, fn)
             elapsed_ms = int((time.perf_counter() - t0) * 1000)
+            eval_m = combined_metrics.get("evaluation_metrics", {})
         except Exception as exc:
             logger.exception("Protection failed for image %s", image_id)
             async with async_session() as db:
@@ -102,19 +104,22 @@ async def _run_protection_task(
             result = await db.execute(stmt)
             img = result.scalar_one_or_none()
             if img:
-                img.status = metrics.get("status", "completed") 
-                img.ssim_score = metrics.get("ssim")  
-                img.psnr_score = metrics.get("psnr") 
-                img.face_ssim_score = metrics.get("face_ssim")
-                img.linf_score = metrics.get("linf")
-                img.guardrail_satisfied = bool(metrics.get("guardrail_satisfied", False))
-                img.attenuation_factor = metrics.get("attenuation_factor")
-                img.epsilon_used = None
+                prot_m = combined_metrics.get("protection_meta", {})
+                eval_m = combined_metrics.get("evaluation_metrics", {})
+
+                img.status = "completed"
+                img.ssim_score = eval_m.get("global_ssim")
+                img.face_ssim_score = eval_m.get("face_ssim_1_2x")
+                img.psnr_score = eval_m.get("psnr_db")
+                img.linf_score = float(eval_m.get("l_inf_max_shift", 0)) if eval_m.get("l_inf_max_shift") is not None else None
+                img.guardrail_satisfied = bool(prot_m.get("guardrail_satisfied", True))
+                img.attenuation_factor = float(prot_m.get("attenuation_factor", 1.0)) if prot_m.get("attenuation_factor") is not None else None
+                img.epsilon_used = eval_m.get("avg_y_npr_percent")
                 img.processing_time_ms = elapsed_ms
                 img.original_path = None  # Privacy: path cleared
-                if os.path.exists(protected_path):
-                    img.protected_path = protected_path 
-                    img.protected_size_bytes = os.path.getsize(protected_path) 
+                if os.path.exists(out_png_path):
+                    img.protected_path = out_png_path
+                    img.protected_size_bytes = os.path.getsize(out_png_path)
                 await db.commit()
 
         # ── Privacy: delete original immediately ─────────────────────
@@ -126,10 +131,12 @@ async def _run_protection_task(
                 logger.warning("[Vault] Failed to delete original: %s", original_path)
 
         logger.info(
-            "Protection complete for %s — SSIM=%.3f  PSNR=%.1f  time=%dms",
+            "Protection complete for %s — Global SSIM=%.3f  Face SSIM=%.3f  PSNR=%.1f  Avg Y-NPR=%.1f%%  time=%dms",
             image_id,
-            metrics.get("ssim", 0),
-            metrics.get("psnr", 0),
+            eval_m.get("global_ssim", 0),
+            eval_m.get("face_ssim_1_2x", 0),
+            eval_m.get("psnr_db", 0),
+            eval_m.get("avg_y_npr_percent", 0),
             elapsed_ms,
         )
 
@@ -193,7 +200,7 @@ async def protect_images(
         asyncio.create_task(
             _run_protection_task(
                 image_id=record.id,
-                original_path=record.original_path,
+                original_path=record.original_path, #typpe:ignore
                 protected_path=os.path.join(user_dir, f"{record.id}_protected.png"),
                 strength=record.protection_strength,
             )

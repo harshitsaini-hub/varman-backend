@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
     logger.info("[STARTUP] Database tables initialised.")
     logger.info("[STARTUP] Storage dir: %s", settings.storage_dir)
     logger.info("[STARTUP] Device: %s", settings.device)
-    logger.info("[STARTUP] EoT iterations: %s", settings.eot_iterations)
+    logger.info("[STARTUP] Default preset: %s", settings.default_preset)
     logger.info("[STARTUP] Varman API is ready.")
 
     yield  # ── application runs here ───────────────────────────────────

@@ -2,7 +2,6 @@
 
 import uuid
 from datetime import datetime
-
 from pydantic import BaseModel, Field
 
 
@@ -10,7 +9,8 @@ from pydantic import BaseModel, Field
 
 class ImageUploadParams(BaseModel):
     """Optional JSON body alongside the multipart file upload."""
-    protection_strength: float = Field(default=0.5, ge=0.0, le=1.0)
+    preset_name: str = Field(default="Balanced", description="Light, Balanced, or Aggressive")
+    enable_grid: bool = Field(default=False, description="Enable optional low-intensity spatial grid")
 
 
 # ── Single image response ─────────────────────────────────────────────────
@@ -19,17 +19,21 @@ class ImageResponse(BaseModel):
     id: uuid.UUID
     original_filename: str
     status: str
-    protection_strength: float
+    protection_strength: float = 0.5
+    preset_name: str = "Balanced"
     width: int
     height: int
     original_size_bytes: int
     protected_size_bytes: int | None = None
     ssim_score: float | None = None
-    psnr_score: float | None = None
     face_ssim_score: float | None = None
+    psnr_score: float | None = None
     linf_score: float | None = None
-    guardrail_satisfied: bool = False
+    avg_y_npr: float | None = None
+    guardrail_satisfied: bool = True
     attenuation_factor: float | None = None
+    landmark_shift_delta_px: float | None = None
+    alignment_error_pct_change: float | None = None
     epsilon_used: float | None = None
     processing_time_ms: int | None = None
     error_message: str | None = None
@@ -45,11 +49,14 @@ class ImageStatusResponse(BaseModel):
     id: uuid.UUID
     status: str
     ssim_score: float | None = None
-    psnr_score: float | None = None
     face_ssim_score: float | None = None
+    psnr_score: float | None = None
     linf_score: float | None = None
-    guardrail_satisfied: bool = False
+    avg_y_npr: float | None = None
+    guardrail_satisfied: bool = True
     attenuation_factor: float | None = None
+    landmark_shift_delta_px: float | None = None
+    alignment_error_pct_change: float | None = None
     processing_time_ms: int | None = None
     error_message: str | None = None
     vault_sealed: bool = False
@@ -75,6 +82,7 @@ class AnalyticsResponse(BaseModel):
     pending_images: int = 0
     avg_ssim: float | None = None
     avg_psnr: float | None = None
+    avg_y_npr: float | None = None
     total_processing_time_ms: int = 0
     total_original_bytes: int = 0
     total_protected_bytes: int = 0

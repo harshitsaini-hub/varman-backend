@@ -15,9 +15,9 @@ async def test_upload_image_creates_record(client: AsyncClient, test_token: str,
     # We mock the heavy GPU pipeline so the test runs instantly.
     # The actual PyTorch math is tested in test_engine.py
     with patch("app.routes.images.settings.storage_dir", str(tmp_path)), \
-         patch("app.routes.images.protect_image_pipeline") as mock_pipeline:
+         patch("app.protection.engine.protect_image_pipeline") as mock_pipeline:
          
-        mock_pipeline.return_value = {"status": "completed", "ssim": 0.95, "psnr": 30.0, "epsilon_used": 0.05}
+        mock_pipeline.return_value = ("dummy_out.png", {"protection_meta": {}, "evaluation_metrics": {"global_ssim": 0.95, "psnr_db": 30.0, "avg_y_npr_percent": 150.0}})
         
         # Create dummy image
         img_byte_arr = io.BytesIO()
