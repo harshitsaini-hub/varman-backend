@@ -12,6 +12,7 @@ dist/
 build/
 .pytest_cache/
 .ruff_cache/
+*.db
 # Ignore heavy AI models and checkpoints
 /models/
 *.safetensors
