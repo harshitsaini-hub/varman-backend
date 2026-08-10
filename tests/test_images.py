@@ -12,8 +12,8 @@ from app.models.protected_image import ProtectedImage
 async def test_upload_image_creates_record(client: AsyncClient, test_token: str, tmp_path):
     """Test that uploading creates a DB row and spawns the background task."""
     
-    # We mock the heavy GPU pipeline so the test runs instantly.
-    # The actual PyTorch math is tested in test_engine.py
+    # We mock the heavy protection pipeline so the test runs instantly.
+    # The actual protection engine math is tested in test_engine.py
     with patch("app.routes.images.settings.storage_dir", str(tmp_path)), \
          patch("app.protection.engine.protect_image_pipeline") as mock_pipeline:
          

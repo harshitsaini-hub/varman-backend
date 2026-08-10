@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
       3. Log readiness.
 
     Shutdown:
-      (nothing to tear down for now — PyTorch models are lazily loaded
+      (nothing to tear down for now — ONNX models are lazily loaded
        and garbage-collected automatically)
     """
     # ── Startup guards ─────────────────────────────────────────────────

@@ -1,9 +1,8 @@
 """Image upload, protection, download, and listing endpoints.
 
 Key design decisions:
-  - A single ``asyncio.Semaphore(1)`` gates all PyTorch work so only ONE
-    image is ever being processed at a time — critical for the 4 GB VRAM
-    limit.
+  - A single ``asyncio.Semaphore(1)`` gates CPU protection execution so only ONE
+    image is being processed at a time.
   - The heavy ``protect_image_pipeline`` runs inside a
     ``ThreadPoolExecutor`` via ``loop.run_in_executor`` so it never blocks
     the async event loop (the frontend can still poll ``/status``).
@@ -36,9 +35,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # ── Concurrency control ───────────────────────────────────────────────────
-# Semaphore(1) = only one GPU job at a time.  The executor runs the
-# synchronous PyTorch code off the event loop so /status polling still works.
-_gpu_semaphore = asyncio.Semaphore(1)
+# Semaphore(1) = only one protection task at a time. The executor runs the
+# synchronous protection engine off the event loop so /status polling still works.
+_protection_semaphore = asyncio.Semaphore(1)
 _executor = ThreadPoolExecutor(max_workers=1)
 
 
@@ -59,10 +58,10 @@ async def _run_protection_task(
     preset_name: str = "Balanced",
     enable_grid: bool = False,
 ) -> None:
-    """Acquire the GPU semaphore, run protection off-thread, update the DB."""
+    """Acquire the protection semaphore, run protection off-thread, update the DB."""
     from app.database import async_session  # local to avoid circular
 
-    async with _gpu_semaphore:
+    async with _protection_semaphore:
         loop = asyncio.get_running_loop()
 
         # Mark as "processing"
