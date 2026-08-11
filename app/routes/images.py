@@ -112,14 +112,14 @@ async def _run_protection_task(
                 img.ssim_score = eval_m.get("global_ssim")
                 img.face_ssim_score = eval_m.get("face_ssim_1_2x")
                 img.psnr_score = eval_m.get("psnr_db")
-                img.linf_score = float(eval_m.get("l_inf_max_shift", 0)) if eval_m.get("l_inf_max_shift") is not None else None
+                img.linf_score = float(eval_m.get("l_inf_max_shift", 0)) if eval_m.get("l_inf_max_shift") is not None else None #type: ignore
                 img.guardrail_satisfied = bool(prot_m.get("guardrail_satisfied", True))
-                img.attenuation_factor = float(prot_m.get("attenuation_factor", 1.0)) if prot_m.get("attenuation_factor") is not None else None
+                img.attenuation_factor = float(prot_m.get("attenuation_factor", 1.0)) if prot_m.get("attenuation_factor") is not None else None #type: ignore
                 img.avg_y_npr = eval_m.get("avg_y_npr_percent")
                 img.landmark_shift_delta_px = eval_m.get("landmark_shift_delta_px")
                 img.alignment_error_pct_change = eval_m.get("alignment_error_pct_change")
                 img.processing_time_ms = elapsed_ms
-                img.original_path = None  # Privacy: path cleared
+                img.original_path = None  #type: ignore
                 if os.path.exists(out_png_path):
                     img.protected_path = out_png_path
                     img.protected_size_bytes = os.path.getsize(out_png_path)

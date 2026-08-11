@@ -25,22 +25,22 @@ class ProtectionEngine:
 
     PRESETS = {
         "Light": {
-            "warp_scale": 0.005,       # 0.5% of face width
+            "warp_scale": 0.005,       # 0.5% of face width (Quality Mode)
             "dct_strength": 3.0,       # Subtle DCT shift
             "target_global_ssim": 0.95,
             "target_face_ssim": 0.95,
         },
         "Balanced": {
-            "warp_scale": 0.010,       # 1.0% of face width
-            "dct_strength": 6.0,       # Medium DCT shift
-            "target_global_ssim": 0.92,
-            "target_face_ssim": 0.92,
-        },
-        "Aggressive": {
-            "warp_scale": 0.015,       # 1.5% of face width
-            "dct_strength": 10.0,      # Stronger DCT shift
+            "warp_scale": 0.015,       # Inherits previous Aggressive level (1.5% face width)
+            "dct_strength": 10.0,      # Medium-high DCT shift
             "target_global_ssim": 0.90,
             "target_face_ssim": 0.90,
+        },
+        "Aggressive": {
+            "warp_scale": 0.025,       # Higher disruption (2.5% face width)
+            "dct_strength": 18.0,      # High-intensity DCT perturbation
+            "target_global_ssim": 0.85, # SSIM Target Range: 0.85 <= SSIM <= 0.90
+            "target_face_ssim": 0.85,
         },
     }
 
