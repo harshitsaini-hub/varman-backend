@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -9,15 +10,19 @@ from sqlalchemy.ext.asyncio import (
 from app.config import settings
 
 is_postgres = settings.database_url.startswith("postgresql")
+is_mysql = settings.database_url.startswith("mysql")
+is_aiomysql = "aiomysql" in settings.database_url
 
-engine_kwargs = {
+engine_kwargs: dict[str, Any] = {
     "echo": False,
-    "pool_pre_ping": True,
+    "pool_pre_ping": not is_aiomysql,
 }
 
-if is_postgres:
+if is_postgres or is_mysql:
     engine_kwargs["pool_size"] = 5
     engine_kwargs["max_overflow"] = 10
+    if is_mysql:
+        engine_kwargs["pool_recycle"] = 3600  # Prevent stale connections in MySQL
 
 engine = create_async_engine(
     settings.database_url,
