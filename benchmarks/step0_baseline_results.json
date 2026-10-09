@@ -1,0 +1,427 @@
+{
+  "engine_preset": "Balanced",
+  "evaluated_pairs": 500,
+  "skipped_no_face": 0,
+  "total_time_seconds": 1778.89,
+  "calibrated_thresholds_far_1pct": {
+    "FaceNet": 0.4427,
+    "ArcFace": 0.1361,
+    "SFace": 0.3079
+  },
+  "models": {
+    "FaceNet": {
+      "threshold": 0.4427,
+      "qualities": {
+        "Q95": {
+          "quality": 95,
+          "clean_matches": 479,
+          "protected_flips": 2,
+          "protected_flip_rate_pct": 0.42,
+          "ci_95_pct": [
+            0.11,
+            1.51
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 0,
+          "control_flip_rate_pct": 0.0,
+          "net_flip_rate_pct": 0.42,
+          "mean_sim_clean": 0.7924,
+          "mean_sim_prot": 0.787,
+          "mean_sim_ctrl": 0.7923,
+          "mean_sim_rand": 0.7908
+        },
+        "Q85": {
+          "quality": 85,
+          "clean_matches": 479,
+          "protected_flips": 2,
+          "protected_flip_rate_pct": 0.42,
+          "ci_95_pct": [
+            0.11,
+            1.51
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 0,
+          "control_flip_rate_pct": 0.0,
+          "net_flip_rate_pct": 0.42,
+          "mean_sim_clean": 0.7924,
+          "mean_sim_prot": 0.7863,
+          "mean_sim_ctrl": 0.7917,
+          "mean_sim_rand": 0.7904
+        },
+        "Q80": {
+          "quality": 80,
+          "clean_matches": 479,
+          "protected_flips": 1,
+          "protected_flip_rate_pct": 0.21,
+          "ci_95_pct": [
+            0.04,
+            1.17
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 0,
+          "control_flip_rate_pct": 0.0,
+          "net_flip_rate_pct": 0.21,
+          "mean_sim_clean": 0.7924,
+          "mean_sim_prot": 0.7865,
+          "mean_sim_ctrl": 0.7917,
+          "mean_sim_rand": 0.7904
+        },
+        "Q75": {
+          "quality": 75,
+          "clean_matches": 479,
+          "protected_flips": 1,
+          "protected_flip_rate_pct": 0.21,
+          "ci_95_pct": [
+            0.04,
+            1.17
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 0,
+          "control_flip_rate_pct": 0.0,
+          "net_flip_rate_pct": 0.21,
+          "mean_sim_clean": 0.7924,
+          "mean_sim_prot": 0.7858,
+          "mean_sim_ctrl": 0.7914,
+          "mean_sim_rand": 0.7901
+        },
+        "Q70": {
+          "quality": 70,
+          "clean_matches": 479,
+          "protected_flips": 1,
+          "protected_flip_rate_pct": 0.21,
+          "ci_95_pct": [
+            0.04,
+            1.17
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 0,
+          "control_flip_rate_pct": 0.0,
+          "net_flip_rate_pct": 0.21,
+          "mean_sim_clean": 0.7924,
+          "mean_sim_prot": 0.7863,
+          "mean_sim_ctrl": 0.7913,
+          "mean_sim_rand": 0.7897
+        },
+        "Q60": {
+          "quality": 60,
+          "clean_matches": 479,
+          "protected_flips": 2,
+          "protected_flip_rate_pct": 0.42,
+          "ci_95_pct": [
+            0.11,
+            1.51
+          ],
+          "random_noise_flips": 1,
+          "random_noise_flip_rate_pct": 0.21,
+          "control_flips": 0,
+          "control_flip_rate_pct": 0.0,
+          "net_flip_rate_pct": 0.42,
+          "mean_sim_clean": 0.7924,
+          "mean_sim_prot": 0.7854,
+          "mean_sim_ctrl": 0.7902,
+          "mean_sim_rand": 0.7886
+        },
+        "Q50": {
+          "quality": 50,
+          "clean_matches": 479,
+          "protected_flips": 2,
+          "protected_flip_rate_pct": 0.42,
+          "ci_95_pct": [
+            0.11,
+            1.51
+          ],
+          "random_noise_flips": 1,
+          "random_noise_flip_rate_pct": 0.21,
+          "control_flips": 1,
+          "control_flip_rate_pct": 0.21,
+          "net_flip_rate_pct": 0.21,
+          "mean_sim_clean": 0.7924,
+          "mean_sim_prot": 0.783,
+          "mean_sim_ctrl": 0.7885,
+          "mean_sim_rand": 0.7877
+        }
+      }
+    },
+    "ArcFace": {
+      "threshold": 0.1361,
+      "qualities": {
+        "Q95": {
+          "quality": 95,
+          "clean_matches": 478,
+          "protected_flips": 0,
+          "protected_flip_rate_pct": 0.0,
+          "ci_95_pct": [
+            0.0,
+            0.8
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 0,
+          "control_flip_rate_pct": 0.0,
+          "net_flip_rate_pct": 0.0,
+          "mean_sim_clean": 0.6669,
+          "mean_sim_prot": 0.6542,
+          "mean_sim_ctrl": 0.6669,
+          "mean_sim_rand": 0.6632
+        },
+        "Q85": {
+          "quality": 85,
+          "clean_matches": 478,
+          "protected_flips": 0,
+          "protected_flip_rate_pct": 0.0,
+          "ci_95_pct": [
+            0.0,
+            0.8
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 0,
+          "control_flip_rate_pct": 0.0,
+          "net_flip_rate_pct": 0.0,
+          "mean_sim_clean": 0.6669,
+          "mean_sim_prot": 0.6533,
+          "mean_sim_ctrl": 0.6659,
+          "mean_sim_rand": 0.6628
+        },
+        "Q80": {
+          "quality": 80,
+          "clean_matches": 478,
+          "protected_flips": 0,
+          "protected_flip_rate_pct": 0.0,
+          "ci_95_pct": [
+            0.0,
+            0.8
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 0,
+          "control_flip_rate_pct": 0.0,
+          "net_flip_rate_pct": 0.0,
+          "mean_sim_clean": 0.6669,
+          "mean_sim_prot": 0.6525,
+          "mean_sim_ctrl": 0.6652,
+          "mean_sim_rand": 0.6623
+        },
+        "Q75": {
+          "quality": 75,
+          "clean_matches": 478,
+          "protected_flips": 0,
+          "protected_flip_rate_pct": 0.0,
+          "ci_95_pct": [
+            0.0,
+            0.8
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 0,
+          "control_flip_rate_pct": 0.0,
+          "net_flip_rate_pct": 0.0,
+          "mean_sim_clean": 0.6669,
+          "mean_sim_prot": 0.6522,
+          "mean_sim_ctrl": 0.6641,
+          "mean_sim_rand": 0.6617
+        },
+        "Q70": {
+          "quality": 70,
+          "clean_matches": 478,
+          "protected_flips": 0,
+          "protected_flip_rate_pct": 0.0,
+          "ci_95_pct": [
+            0.0,
+            0.8
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 0,
+          "control_flip_rate_pct": 0.0,
+          "net_flip_rate_pct": 0.0,
+          "mean_sim_clean": 0.6669,
+          "mean_sim_prot": 0.651,
+          "mean_sim_ctrl": 0.6631,
+          "mean_sim_rand": 0.661
+        },
+        "Q60": {
+          "quality": 60,
+          "clean_matches": 478,
+          "protected_flips": 0,
+          "protected_flip_rate_pct": 0.0,
+          "ci_95_pct": [
+            0.0,
+            0.8
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 0,
+          "control_flip_rate_pct": 0.0,
+          "net_flip_rate_pct": 0.0,
+          "mean_sim_clean": 0.6669,
+          "mean_sim_prot": 0.6481,
+          "mean_sim_ctrl": 0.6601,
+          "mean_sim_rand": 0.6577
+        },
+        "Q50": {
+          "quality": 50,
+          "clean_matches": 478,
+          "protected_flips": 0,
+          "protected_flip_rate_pct": 0.0,
+          "ci_95_pct": [
+            0.0,
+            0.8
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 0,
+          "control_flip_rate_pct": 0.0,
+          "net_flip_rate_pct": 0.0,
+          "mean_sim_clean": 0.6669,
+          "mean_sim_prot": 0.6454,
+          "mean_sim_ctrl": 0.6572,
+          "mean_sim_rand": 0.656
+        }
+      }
+    },
+    "SFace": {
+      "threshold": 0.3079,
+      "qualities": {
+        "Q95": {
+          "quality": 95,
+          "clean_matches": 474,
+          "protected_flips": 1,
+          "protected_flip_rate_pct": 0.21,
+          "ci_95_pct": [
+            0.04,
+            1.19
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 0,
+          "control_flip_rate_pct": 0.0,
+          "net_flip_rate_pct": 0.21,
+          "mean_sim_clean": 0.6577,
+          "mean_sim_prot": 0.6505,
+          "mean_sim_ctrl": 0.6578,
+          "mean_sim_rand": 0.6539
+        },
+        "Q85": {
+          "quality": 85,
+          "clean_matches": 474,
+          "protected_flips": 1,
+          "protected_flip_rate_pct": 0.21,
+          "ci_95_pct": [
+            0.04,
+            1.19
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 0,
+          "control_flip_rate_pct": 0.0,
+          "net_flip_rate_pct": 0.21,
+          "mean_sim_clean": 0.6577,
+          "mean_sim_prot": 0.6491,
+          "mean_sim_ctrl": 0.6571,
+          "mean_sim_rand": 0.6541
+        },
+        "Q80": {
+          "quality": 80,
+          "clean_matches": 474,
+          "protected_flips": 0,
+          "protected_flip_rate_pct": 0.0,
+          "ci_95_pct": [
+            0.0,
+            0.8
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 0,
+          "control_flip_rate_pct": 0.0,
+          "net_flip_rate_pct": 0.0,
+          "mean_sim_clean": 0.6577,
+          "mean_sim_prot": 0.6479,
+          "mean_sim_ctrl": 0.6566,
+          "mean_sim_rand": 0.6534
+        },
+        "Q75": {
+          "quality": 75,
+          "clean_matches": 474,
+          "protected_flips": 2,
+          "protected_flip_rate_pct": 0.42,
+          "ci_95_pct": [
+            0.12,
+            1.53
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 0,
+          "control_flip_rate_pct": 0.0,
+          "net_flip_rate_pct": 0.42,
+          "mean_sim_clean": 0.6577,
+          "mean_sim_prot": 0.6472,
+          "mean_sim_ctrl": 0.655,
+          "mean_sim_rand": 0.6529
+        },
+        "Q70": {
+          "quality": 70,
+          "clean_matches": 474,
+          "protected_flips": 0,
+          "protected_flip_rate_pct": 0.0,
+          "ci_95_pct": [
+            0.0,
+            0.8
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 1,
+          "control_flip_rate_pct": 0.21,
+          "net_flip_rate_pct": -0.21,
+          "mean_sim_clean": 0.6577,
+          "mean_sim_prot": 0.647,
+          "mean_sim_ctrl": 0.6548,
+          "mean_sim_rand": 0.6526
+        },
+        "Q60": {
+          "quality": 60,
+          "clean_matches": 474,
+          "protected_flips": 4,
+          "protected_flip_rate_pct": 0.84,
+          "ci_95_pct": [
+            0.33,
+            2.15
+          ],
+          "random_noise_flips": 3,
+          "random_noise_flip_rate_pct": 0.63,
+          "control_flips": 1,
+          "control_flip_rate_pct": 0.21,
+          "net_flip_rate_pct": 0.63,
+          "mean_sim_clean": 0.6577,
+          "mean_sim_prot": 0.6456,
+          "mean_sim_ctrl": 0.6523,
+          "mean_sim_rand": 0.649
+        },
+        "Q50": {
+          "quality": 50,
+          "clean_matches": 474,
+          "protected_flips": 3,
+          "protected_flip_rate_pct": 0.63,
+          "ci_95_pct": [
+            0.22,
+            1.84
+          ],
+          "random_noise_flips": 0,
+          "random_noise_flip_rate_pct": 0.0,
+          "control_flips": 1,
+          "control_flip_rate_pct": 0.21,
+          "net_flip_rate_pct": 0.42,
+          "mean_sim_clean": 0.6577,
+          "mean_sim_prot": 0.6438,
+          "mean_sim_ctrl": 0.6502,
+          "mean_sim_rand": 0.6475
+        }
+      }
+    }
+  }
+}

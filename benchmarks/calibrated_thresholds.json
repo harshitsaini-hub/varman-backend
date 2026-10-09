@@ -1,0 +1,26 @@
+{
+  "benchmark_version": "2.1.0",
+  "calibration_split": "lfw_train_impostors",
+  "calibration_pair_count": 50,
+  "target_far": 0.01,
+  "observed_far": {
+    "FaceNet": 0.02,
+    "ArcFace": 0.02,
+    "SFace": 0.02
+  },
+  "thresholds": {
+    "FaceNet": 0.4525,
+    "ArcFace": 0.1081,
+    "SFace": 0.3202
+  },
+  "model_weights_hashes": {
+    "ArcFace": "4c06341c33c2ca1f",
+    "SFace": "0ba9fbfa01b5270c",
+    "FaceNet": "InceptionResnetV1_vggface2"
+  },
+  "preprocessing_config": {
+    "arcface": "canonical_5point_affine_112x112_rgb_norm_127.5",
+    "sface": "opencv_sface_alignCrop_112x112_bgr",
+    "facenet": "bbox_margin_0.15_resize_160x160_rgb_norm_127.5_128.0"
+  }
+}
