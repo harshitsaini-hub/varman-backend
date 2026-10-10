@@ -85,7 +85,7 @@ async def init_db() -> None:
                     logger.info("[STARTUP] Seeding complete.")
         else:
             logger.info("[STARTUP] Admin credentials not configured in environment. Skipping operator seeding.")
-    except Exception as exc:
+    except Exception:
         logger.exception(
             "[STARTUP] Could not connect to PostgreSQL or initialize DB. "
             "DB-dependent routes will fail until the database is available."

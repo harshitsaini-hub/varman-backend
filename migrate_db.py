@@ -1,25 +1,33 @@
-import sqlite3
-import os
+"""Database migration utility for Varman schema updates.
+Respects settings.database_url across SQLite, MySQL, and PostgreSQL.
+"""
 
-db_path = 'varman.db'
-if os.path.exists(db_path):
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
-    
+import asyncio
+from sqlalchemy import text
+from app.config import settings
+from app.database import engine
+
+
+async def run_migration() -> None:
+    print(f"[Migration] Connecting to database: {settings.database_url}")
     try:
-        cur.execute('ALTER TABLE users ADD COLUMN vault_salt VARCHAR(64) NOT NULL DEFAULT ""')
-        print('Added vault_salt to users.')
-    except Exception as e:
-        print('Error altering users:', e)
-        
-    try:
-        cur.execute('ALTER TABLE protected_images ADD COLUMN vault_sealed BOOLEAN NOT NULL DEFAULT 0')
-        print('Added vault_sealed to protected_images.')
-    except Exception as e:
-        print('Error altering protected_images:', e)
-        
-    conn.commit()
-    conn.close()
-    print("Migration complete.")
-else:
-    print('Database app.db not found.')
+        async with engine.begin() as conn:
+            try:
+                await conn.execute(text('ALTER TABLE users ADD COLUMN vault_salt VARCHAR(64) NOT NULL DEFAULT ""'))
+                print("[Migration] Added vault_salt to users.")
+            except Exception as e:
+                print(f"[Migration] Note on users table: {e}")
+
+            try:
+                await conn.execute(text('ALTER TABLE protected_images ADD COLUMN vault_sealed BOOLEAN NOT NULL DEFAULT 0'))
+                print("[Migration] Added vault_sealed to protected_images.")
+            except Exception as e:
+                print(f"[Migration] Note on protected_images table: {e}")
+
+        print("[Migration] Migration finished.")
+    finally:
+        await engine.dispose()
+
+
+if __name__ == "__main__":
+    asyncio.run(run_migration())

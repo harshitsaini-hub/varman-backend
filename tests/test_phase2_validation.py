@@ -1,6 +1,5 @@
 import numpy as np
 import cv2
-from PIL import Image
 from app.protection.protection_engine import ProtectionEngine
 from app.protection.evaluation_engine import EvaluationEngine
 
@@ -12,7 +11,6 @@ class NoFaceDetector:
 
 def test_guardrail_reports_unsatisfied_at_minimum_attenuation(monkeypatch, tmp_path):
     image_path = str(tmp_path / "input.jpg")
-    protected_path = str(tmp_path / "protected.png")
     image = np.full((64, 64, 3), 128, dtype=np.uint8)
     cv2.imwrite(image_path, image)
 

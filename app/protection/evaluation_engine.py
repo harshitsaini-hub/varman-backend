@@ -102,6 +102,11 @@ class EvaluationEngine:
         g1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY).astype(np.float64)
         g2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY).astype(np.float64)
 
+        h, w = g1.shape[:2]
+        if h < 11 or w < 11:
+            g1 = cv2.resize(g1, (max(11, w), max(11, h)), interpolation=cv2.INTER_NEAREST)
+            g2 = cv2.resize(g2, (max(11, w), max(11, h)), interpolation=cv2.INTER_NEAREST)
+
         C1 = (0.01 * 255) ** 2
         C2 = (0.03 * 255) ** 2
 
@@ -197,7 +202,7 @@ class EvaluationEngine:
             C = self._jpeg_compress_decompress_y(protected_bgr, quality, resize_ratio).astype(np.float64)
 
             num = np.linalg.norm(C - C0)
-            npr = (num / denom) * 100.0
+            npr = min(100.0, (num / denom) * 100.0)
             npr_scores[tier_name] = round(float(npr), 2)
 
         avg_npr = float(np.mean(list(npr_scores.values())))
@@ -235,9 +240,10 @@ class EvaluationEngine:
         ones = np.ones((5, 1), dtype=np.float32)
         lmks_homo = np.hstack([lmks, ones])
         transformed = (matrix @ lmks_homo.T).T
-        # MSE deviation from canonical alignment
-        mse = np.mean((transformed - self.CANONICAL_5_LANDMARKS) ** 2)
-        return float(np.sqrt(mse))
+        # Euclidean landmark point deviation (RMSE across 5 landmark coordinates)
+        point_squared_errors = np.sum((transformed - self.CANONICAL_5_LANDMARKS) ** 2, axis=1)
+        rmse = float(np.sqrt(np.mean(point_squared_errors)))
+        return rmse
 
     def _compute_alignment_effectiveness(
         self, orig_bgr: np.ndarray, protected_bgr: np.ndarray

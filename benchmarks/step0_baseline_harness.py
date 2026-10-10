@@ -20,13 +20,12 @@ Sweep:
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import os
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple, Any
+from typing import Dict, Tuple, Any
 
 # Ensure Varman-backend is on python path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -34,7 +33,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import cv2
 import numpy as np
 import onnxruntime as ort
-from PIL import Image
 from sklearn.datasets import fetch_lfw_pairs
 import torch
 
@@ -72,6 +70,14 @@ class ModelSuite:
         if not arcface_path.exists():
             raise FileNotFoundError(f"ArcFace ONNX not found: {arcface_path}")
         print(f"[ModelSuite] Loading ArcFace (w600k_r50.onnx, ONNX Runtime)...")
+        if sys.platform == "win32" and self.device == "cuda" and torch.cuda.is_available():
+            torch_lib_dir = Path(torch.__file__).parent / "lib"
+            if torch_lib_dir.exists() and hasattr(os, "add_dll_directory"):
+                try:
+                    os.add_dll_directory(str(torch_lib_dir))
+                except Exception:
+                    pass
+
         providers = ["CUDAExecutionProvider", "CPUExecutionProvider"] if self.device == "cuda" else ["CPUExecutionProvider"]
         try:
             self.arcface_session = ort.InferenceSession(str(arcface_path), providers=providers)
@@ -228,6 +234,9 @@ def run_step0_evaluation(
 
         # 2. Apply Current Varman Protection to Image 1
         prot_bgr, meta = engine.protect(img1_bgr, preset_name=preset)
+        if meta.get("face_count", 0) == 0:
+            skipped_no_face += 1
+            continue
 
         ssim_val, psnr_val = compute_ssim_psnr(img1_bgr, prot_bgr)
         quality_metrics["ssim"].append(ssim_val)
@@ -270,11 +279,11 @@ def run_step0_evaluation(
     mean_ssim = float(np.mean(quality_metrics["ssim"]))
     mean_psnr = float(np.mean(quality_metrics["psnr"]))
 
-    # Compile Final Table
-    summary_table = []
     print("\n" + "=" * 88)
     print(f"STEP 0 BASELINE RESULTS: FLIP RATE PER MODEL PER QUALITY (Current Engine: {preset})")
     print(f"Average Quality: SSIM = {mean_ssim:.4f} | PSNR = {mean_psnr:.2f} dB | Total Time: {total_time:.1f}s")
+    if skipped_no_face > 0:
+        print(f"Note: Skipped {skipped_no_face} pairs due to no detected face.")
     print("=" * 88)
     print(f"{'Model':<10} | {'JPEG Quality':<12} | {'Clean Matches':<14} | {'Protected Flip Rate':<20} | {'Control Flip (JPEG)':<20} | {'Net Flip'}")
     print("-" * 88)
@@ -282,6 +291,7 @@ def run_step0_evaluation(
     compiled_results: Dict[str, Any] = {
         "engine_preset": preset,
         "evaluated_pairs": use_count,
+        "skipped_no_face": skipped_no_face,
         "mean_ssim": round(mean_ssim, 4),
         "mean_psnr": round(mean_psnr, 2),
         "total_time_seconds": round(total_time, 2),

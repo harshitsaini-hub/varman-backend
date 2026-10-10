@@ -37,6 +37,7 @@ router = APIRouter()
 # ── Concurrency control ───────────────────────────────────────────────────
 # Semaphore(1) = only one protection task at a time. The executor runs the
 # synchronous protection engine off the event loop so /status polling still works.
+MAX_ERROR_MESSAGE_LENGTH = 500
 _protection_semaphore = asyncio.Semaphore(1)
 _executor = ThreadPoolExecutor(max_workers=1)
 
@@ -95,7 +96,7 @@ async def _run_protection_task(
                 img = result.scalar_one_or_none()
                 if img:
                     img.status = "failed"
-                    img.error_message = str(exc)[:500]
+                    img.error_message = str(exc)[:MAX_ERROR_MESSAGE_LENGTH]
                     await db.commit()
             return
 
@@ -166,9 +167,7 @@ async def protect_images(
         image_id = uuid.uuid4()
         ext = (file.filename or "upload.jpg").rsplit(".", 1)[-1].lower()
         original_name = f"{image_id}_original.{ext}"
-        protected_name = f"{image_id}_protected.png"
         original_path = os.path.join(user_dir, original_name)
-        protected_path = os.path.join(user_dir, protected_name)
 
         # Stream to disk with validation
         await save_upload_with_limits(file, original_path)

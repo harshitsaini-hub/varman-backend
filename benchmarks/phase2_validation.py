@@ -21,10 +21,14 @@ import argparse
 import json
 import platform
 import statistics
+import sys
 import tempfile
 import time
 from pathlib import Path
 from typing import Any
+
+# Ensure Varman-backend is on python path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import cv2
 import numpy as np
@@ -110,12 +114,11 @@ def run_validation(yunet_model: Path, images: list[Path], output_dir: Path) -> d
             t_warp_ms = int((time.perf_counter() - t_warp) * 1000)
 
             t_dct = time.perf_counter()
-            dct_applied = protection_eng.apply_y_channel_dct_perturbation(warped, dct_strength)
+            _ = protection_eng.apply_y_channel_dct_perturbation(warped, dct_strength)
             t_dct_ms = int((time.perf_counter() - t_dct) * 1000)
 
             t_grid = time.perf_counter()
             # Grid disabled by default per locked spec
-            protected_bgr = dct_applied
             t_grid_ms = int((time.perf_counter() - t_grid) * 1000)
 
             # Run full protect() for guardrail validation (includes attenuation loop)

@@ -12,9 +12,7 @@ import os
 import time
 import numpy as np
 import cv2
-from app.protection.engine import protect_image_pipeline, compute_quality_metrics
-from app.protection.protection_engine import ProtectionEngine
-from app.protection.evaluation_engine import EvaluationEngine
+from app.protection.engine import protect_image_pipeline
 
 
 def test_engine_invariants():
