@@ -692,7 +692,11 @@ def run_face_recognition_benchmark(
     genuine_indices = np.where(lfw_test.target == 1)[0]
     use_count = min(num_pairs, len(genuine_indices))
     selected_indices = genuine_indices[:use_count]
-    print(f"[Dataset] Selected {use_count} genuine pairs from {EVALUATION_SPLIT_NAME} for benchmarking.")
+    print(f"[Dataset] Selected {use_count} genuine pairs from {EVALUATION_SPLIT_NAME} for benchmarking.", flush=True)
+    est_total_min = (use_count * 3.5) / 60.0
+    print(f"[Benchmark] Evaluating across {len(jpeg_qualities)} JPEG quality tiers (~21 neural net inferences/pair).", flush=True)
+    print(f"[Benchmark] Estimated runtime: ~{est_total_min:.1f} minutes. Live ETA updates printed every 10 pairs.", flush=True)
+    print(f"[Benchmark] Starting evaluation loop now (Ctrl+C anytime to stop and save partial results)...\n", flush=True)
 
     models = ["FaceNet", "ArcFace", "SFace"]
 
@@ -706,142 +710,158 @@ def run_face_recognition_benchmark(
     evaluated_pairs_count = 0
     noise_energy_ratios: List[float] = []
 
-    for pair_id, pair_idx in enumerate(selected_indices):
-        bgr1 = cv2.cvtColor((lfw_test.pairs[pair_idx][0] * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
-        bgr2 = cv2.cvtColor((lfw_test.pairs[pair_idx][1] * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
+    try:
+        for pair_id, pair_idx in enumerate(selected_indices):
+            bgr1 = cv2.cvtColor((lfw_test.pairs[pair_idx][0] * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
+            bgr2 = cv2.cvtColor((lfw_test.pairs[pair_idx][1] * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
 
-        # Detect faces on original uncompressed images
-        f1 = engine.detect_faces(bgr1)
-        f2 = engine.detect_faces(bgr2)
-        if not f1 or not f2:
-            skipped_pairs_count += 1
-            for m in models:
-                for q in jpeg_qualities:
-                    state_maps[m][f"Q{q}"].append({
-                        "pair_id": pair_id,
-                        "is_valid": False,
-                        "skip_reason": "detector_found_no_face_on_original",
-                        "is_clean_match": False,
-                        "is_protected_flip": False,
-                        "is_jpeg_control_flip": False,
-                        "is_noise_control_flip": False,
-                        "sim_clean": None,
-                        "sim_prot": None,
-                        "sim_jpeg_ctrl": None,
-                        "sim_noise_ctrl": None,
-                    })
-            continue
+            # Detect faces on original uncompressed images
+            f1 = engine.detect_faces(bgr1)
+            f2 = engine.detect_faces(bgr2)
+            if not f1 or not f2:
+                skipped_pairs_count += 1
+                for m in models:
+                    for q in jpeg_qualities:
+                        state_maps[m][f"Q{q}"].append({
+                            "pair_id": pair_id,
+                            "is_valid": False,
+                            "skip_reason": "detector_found_no_face_on_original",
+                            "is_clean_match": False,
+                            "is_protected_flip": False,
+                            "is_jpeg_control_flip": False,
+                            "is_noise_control_flip": False,
+                            "sim_clean": None,
+                            "sim_prot": None,
+                            "sim_jpeg_ctrl": None,
+                            "sim_noise_ctrl": None,
+                        })
+                continue
 
-        face1_clean = f1[0]
-        face2_target = f2[0]
+            face1_clean = f1[0]
+            face2_target = f2[0]
 
-        # Extract clean baseline representations with explicit failure tracking
-        emb2_target, fail2 = model_suite.extract_model_features(bgr2, face2_target)
-        emb1_clean, fail1 = model_suite.extract_model_features(bgr1, face1_clean)
+            # Extract clean baseline representations with explicit failure tracking
+            emb2_target, fail2 = model_suite.extract_model_features(bgr2, face2_target)
+            emb1_clean, fail1 = model_suite.extract_model_features(bgr1, face1_clean)
 
-        # Run Varman Protection once on original image 1
-        prot_bgr, prot_meta = engine.protect(bgr1, preset_name=preset)
-        if not prot_meta.get("faces"):
-            skipped_pairs_count += 1
-            for m in models:
-                for q in jpeg_qualities:
-                    state_maps[m][f"Q{q}"].append({
-                        "pair_id": pair_id,
-                        "is_valid": False,
-                        "skip_reason": "detector_lost_face_after_protection",
-                        "is_clean_match": False,
-                        "is_protected_flip": False,
-                        "is_jpeg_control_flip": False,
-                        "is_noise_control_flip": False,
-                        "sim_clean": None,
-                        "sim_prot": None,
-                        "sim_jpeg_ctrl": None,
-                        "sim_noise_ctrl": None,
-                    })
-            continue
+            # Run Varman Protection once on original image 1
+            prot_bgr, prot_meta = engine.protect(bgr1, preset_name=preset)
+            if not prot_meta.get("faces"):
+                skipped_pairs_count += 1
+                for m in models:
+                    for q in jpeg_qualities:
+                        state_maps[m][f"Q{q}"].append({
+                            "pair_id": pair_id,
+                            "is_valid": False,
+                            "skip_reason": "detector_lost_face_after_protection",
+                            "is_clean_match": False,
+                            "is_protected_flip": False,
+                            "is_jpeg_control_flip": False,
+                            "is_noise_control_flip": False,
+                            "sim_clean": None,
+                            "sim_prot": None,
+                            "sim_jpeg_ctrl": None,
+                            "sim_noise_ctrl": None,
+                        })
+                continue
 
-        face1_prot = prot_meta["faces"][0]
+            face1_prot = prot_meta["faces"][0]
 
-        # Synthesize reproducible energy-matched random noise control
-        noise_bgr, noise_stats = generate_energy_matched_noise(bgr1, prot_bgr, rng)
-        noise_energy_ratios.append(noise_stats["energy_match_ratio"])
+            # Synthesize reproducible energy-matched random noise control
+            noise_bgr, noise_stats = generate_energy_matched_noise(bgr1, prot_bgr, rng)
+            noise_energy_ratios.append(noise_stats["energy_match_ratio"])
 
-        # Determine clean baseline match status per model
-        clean_match_status: Dict[str, bool] = {}
-        clean_sims: Dict[str, Optional[float]] = {}
-        clean_valid: Dict[str, bool] = {}
-
-        for m in models:
-            if emb1_clean[m] is None or emb2_target[m] is None:
-                clean_valid[m] = False
-                clean_match_status[m] = False
-                clean_sims[m] = None
-            else:
-                sim = cosine_similarity(emb1_clean[m], emb2_target[m])
-                clean_sims[m] = sim
-                clean_valid[m] = True
-                clean_match_status[m] = bool(sim >= thresholds[m])
-
-        # Evaluate across JPEG quality tiers
-        for q in jpeg_qualities:
-            ctrl_bgr = compress_jpeg(bgr1, quality=q)
-            prot_comp_bgr = compress_jpeg(prot_bgr, quality=q)
-            noise_comp_bgr = compress_jpeg(noise_bgr, quality=q)
-
-            emb_ctrl, _ = model_suite.extract_model_features(ctrl_bgr, face1_clean)
-            emb_prot, _ = model_suite.extract_model_features(prot_comp_bgr, face1_prot)
-            emb_noise, _ = model_suite.extract_model_features(noise_comp_bgr, face1_clean)
+            # Determine clean baseline match status per model
+            clean_match_status: Dict[str, bool] = {}
+            clean_sims: Dict[str, Optional[float]] = {}
+            clean_valid: Dict[str, bool] = {}
 
             for m in models:
-                # If extraction on clean baseline failed, record failure
-                if not clean_valid[m]:
+                if emb1_clean[m] is None or emb2_target[m] is None:
+                    clean_valid[m] = False
+                    clean_match_status[m] = False
+                    clean_sims[m] = None
+                else:
+                    sim = cosine_similarity(emb1_clean[m], emb2_target[m])
+                    clean_sims[m] = sim
+                    clean_valid[m] = True
+                    clean_match_status[m] = bool(sim >= thresholds[m])
+
+            # Evaluate across JPEG quality tiers
+            for q in jpeg_qualities:
+                ctrl_bgr = compress_jpeg(bgr1, quality=q)
+                prot_comp_bgr = compress_jpeg(prot_bgr, quality=q)
+                noise_comp_bgr = compress_jpeg(noise_bgr, quality=q)
+
+                emb_ctrl, _ = model_suite.extract_model_features(ctrl_bgr, face1_clean)
+                emb_prot, _ = model_suite.extract_model_features(prot_comp_bgr, face1_prot)
+                emb_noise, _ = model_suite.extract_model_features(noise_comp_bgr, face1_clean)
+
+                for m in models:
+                    # If extraction on clean baseline failed, record failure
+                    if not clean_valid[m]:
+                        state_maps[m][f"Q{q}"].append({
+                            "pair_id": pair_id,
+                            "is_valid": False,
+                            "skip_reason": f"clean_feature_extraction_failed ({fail1.get(m) or fail2.get(m)})",
+                            "is_clean_match": False,
+                            "is_protected_flip": False,
+                            "is_jpeg_control_flip": False,
+                            "is_noise_control_flip": False,
+                            "sim_clean": None,
+                            "sim_prot": None,
+                            "sim_jpeg_ctrl": None,
+                            "sim_noise_ctrl": None,
+                        })
+                        continue
+
+                    thresh = thresholds[m]
+                    is_clean = clean_match_status[m]
+                    sim_c = clean_sims[m]
+
+                    # Extract similarities under degradation
+                    sim_p = cosine_similarity(emb_prot[m], emb2_target[m]) if emb_prot[m] is not None else -1.0
+                    sim_ctrl = cosine_similarity(emb_ctrl[m], emb2_target[m]) if emb_ctrl[m] is not None else -1.0
+                    sim_n = cosine_similarity(emb_noise[m], emb2_target[m]) if emb_noise[m] is not None else -1.0
+
+                    # A flip occurs ONLY if is_clean_match was True, but degraded similarity drops below threshold
+                    is_prot_flip = bool(is_clean and (sim_p < thresh))
+                    is_ctrl_flip = bool(is_clean and (sim_ctrl < thresh))
+                    is_noise_flip = bool(is_clean and (sim_n < thresh))
+
                     state_maps[m][f"Q{q}"].append({
                         "pair_id": pair_id,
-                        "is_valid": False,
-                        "skip_reason": f"clean_feature_extraction_failed ({fail1.get(m) or fail2.get(m)})",
-                        "is_clean_match": False,
-                        "is_protected_flip": False,
-                        "is_jpeg_control_flip": False,
-                        "is_noise_control_flip": False,
-                        "sim_clean": None,
-                        "sim_prot": None,
-                        "sim_jpeg_ctrl": None,
-                        "sim_noise_ctrl": None,
+                        "is_valid": True,
+                        "skip_reason": None,
+                        "is_clean_match": is_clean,
+                        "is_protected_flip": is_prot_flip,
+                        "is_jpeg_control_flip": is_ctrl_flip,
+                        "is_noise_control_flip": is_noise_flip,
+                        "sim_clean": round(sim_c, 4) if sim_c is not None else None,
+                        "sim_prot": round(sim_p, 4) if sim_p is not None else None,
+                        "sim_jpeg_ctrl": round(sim_ctrl, 4) if sim_ctrl is not None else None,
+                        "sim_noise_ctrl": round(sim_n, 4) if sim_n is not None else None,
                     })
-                    continue
 
-                thresh = thresholds[m]
-                is_clean = clean_match_status[m]
-                sim_c = clean_sims[m]
-
-                # Extract similarities under degradation
-                sim_p = cosine_similarity(emb_prot[m], emb2_target[m]) if emb_prot[m] is not None else -1.0
-                sim_ctrl = cosine_similarity(emb_ctrl[m], emb2_target[m]) if emb_ctrl[m] is not None else -1.0
-                sim_n = cosine_similarity(emb_noise[m], emb2_target[m]) if emb_noise[m] is not None else -1.0
-
-                # A flip occurs ONLY if is_clean_match was True, but degraded similarity drops below threshold
-                is_prot_flip = bool(is_clean and (sim_p < thresh))
-                is_ctrl_flip = bool(is_clean and (sim_ctrl < thresh))
-                is_noise_flip = bool(is_clean and (sim_n < thresh))
-
-                state_maps[m][f"Q{q}"].append({
-                    "pair_id": pair_id,
-                    "is_valid": True,
-                    "skip_reason": None,
-                    "is_clean_match": is_clean,
-                    "is_protected_flip": is_prot_flip,
-                    "is_jpeg_control_flip": is_ctrl_flip,
-                    "is_noise_control_flip": is_noise_flip,
-                    "sim_clean": round(sim_c, 4) if sim_c is not None else None,
-                    "sim_prot": round(sim_p, 4) if sim_p is not None else None,
-                    "sim_jpeg_ctrl": round(sim_ctrl, 4) if sim_ctrl is not None else None,
-                    "sim_noise_ctrl": round(sim_n, 4) if sim_n is not None else None,
-                })
-
-        evaluated_pairs_count += 1
-        if evaluated_pairs_count % 50 == 0 or (pair_id + 1) == use_count:
-            elapsed = time.perf_counter() - t_start
-            print(f"  Processed {evaluated_pairs_count}/{use_count} pairs ({elapsed:.1f}s)...")
+            evaluated_pairs_count += 1
+            if evaluated_pairs_count == 1 or evaluated_pairs_count % 10 == 0 or (pair_id + 1) == use_count:
+                elapsed = time.perf_counter() - t_start
+                speed = evaluated_pairs_count / max(elapsed, 1e-6)
+                remaining = use_count - evaluated_pairs_count
+                eta_sec = remaining / speed if speed > 0 else 0
+                eta_str = f"{eta_sec / 60.0:.1f}m" if eta_sec >= 60 else f"{int(eta_sec)}s"
+                print(
+                    f"  [Pair {evaluated_pairs_count:>3}/{use_count}] "
+                    f"Elapsed: {elapsed:5.1f}s | Speed: {speed:4.2f} pairs/s | "
+                    f"ETA: {eta_str}",
+                    flush=True,
+                )
+    except KeyboardInterrupt:
+        print(f"\n[Interrupted] Evaluation halted early by user (Ctrl+C) after {evaluated_pairs_count} pairs.", flush=True)
+        if evaluated_pairs_count == 0:
+            print("[Interrupted] No pairs were completed. Exiting.", flush=True)
+            return {}
+        print(f"[Interrupted] Compiling and saving partial results for {evaluated_pairs_count} completed pairs...\n", flush=True)
 
     total_time = time.perf_counter() - t_start
     mean_energy_ratio = float(np.mean(noise_energy_ratios)) if noise_energy_ratios else 1.0
