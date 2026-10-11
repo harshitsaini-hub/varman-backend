@@ -239,6 +239,7 @@ class ProtectionEngine:
         preset_name: str = "Balanced",
         enable_grid: bool = False,
         mode: str = "fast",
+        **kwargs,
     ) -> Tuple[np.ndarray, Dict[str, Any]]:
         """
         Execute image protection pipeline with explicit mode selection:
@@ -267,7 +268,7 @@ class ProtectionEngine:
             logger.info(f"[ProtectionEngine] Strong mode: detected {len(faces)} face(s).")
             strong_engine = self._get_strong_engine()
             prot_bgr, strong_meta = strong_engine.protect_image(
-                img_bgr, faces, target_face_ssim=0.90
+                img_bgr, faces, **kwargs
             )
             strong_meta["preset"] = preset_name
             strong_meta["mode"] = "strong"
@@ -290,9 +291,10 @@ class ProtectionEngine:
         preset_name: str = "Balanced",
         enable_grid: bool = False,
         mode: str = "fast",
+        **kwargs,
     ) -> Tuple[np.ndarray, Dict[str, Any]]:
         """Alias for protect()."""
-        return self.protect(img_bgr, preset_name=preset_name, enable_grid=enable_grid, mode=mode)
+        return self.protect(img_bgr, preset_name=preset_name, enable_grid=enable_grid, mode=mode, **kwargs)
 
     def _protect_fast(
         self,

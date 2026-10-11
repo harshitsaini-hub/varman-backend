@@ -30,6 +30,35 @@ from app.protection.surrogate_models import DualSurrogateSuite
 logger = logging.getLogger(__name__)
 
 
+def compute_texture_weight_map(
+    crop_rgb: np.ndarray,
+    w_min: float = 0.1,
+) -> np.ndarray:
+    """
+    Computes a normalized per-pixel weight map w(x, y) in [w_min, 1.0] from local texture.
+    Uses Sobel spatial gradient magnitude on the grayscale luminance channel Y,
+    smoothed slightly with a Gaussian filter and scaled between w_min and 1.0.
+    
+    Smooth skin regions (cheeks, forehead, chin) receive weights near w_min.
+    High-texture regions (eyes, brows, beard, hair, contours) receive weights near 1.0.
+    """
+    gray = cv2.cvtColor(crop_rgb, cv2.COLOR_RGB2GRAY).astype(np.float32) / 255.0
+    grad_x = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+    grad_y = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+    grad_mag = np.sqrt(grad_x ** 2 + grad_y ** 2)
+    grad_mag_smooth = cv2.GaussianBlur(grad_mag, (3, 3), 0.5)
+
+    p_low = float(np.percentile(grad_mag_smooth, 5.0))
+    p_high = float(np.percentile(grad_mag_smooth, 95.0))
+    if p_high > p_low + 1e-6:
+        norm_mag = np.clip((grad_mag_smooth - p_low) / (p_high - p_low), 0.0, 1.0)
+    else:
+        norm_mag = np.zeros_like(grad_mag_smooth)
+
+    weight_map = w_min + (1.0 - w_min) * norm_mag
+    return weight_map.astype(np.float32)
+
+
 class StrongProtectionEngine:
     """
     GPU-accelerated Strong Mode engine using EOT-PGD against dual face surrogates.
@@ -53,16 +82,22 @@ class StrongProtectionEngine:
         crop_112_bgr: np.ndarray,
         steps: int = 25,
         eps: float = 7.0 / 255.0,
-        alpha: float = 1.0 / 255.0,
+        alpha: Optional[float] = None,
         mu: float = 0.9,
         target_face_ssim: float = 0.90,
+        enable_guardrail: bool = True,
+        texture_weighted: bool = False,
+        w_min: float = 0.1,
     ) -> Tuple[np.ndarray, float, Dict[str, Any]]:
         """
-        Runs EOT-PGD on aligned 112x112 face crop and enforces target_face_ssim floor.
+        Runs EOT-PGD on aligned 112x112 face crop and optionally enforces target_face_ssim floor.
 
         Returns:
             (protected_crop_bgr, final_face_ssim, stats_dict)
         """
+        if alpha is None:
+            alpha = eps / 7.0
+
         crop_rgb = cv2.cvtColor(crop_112_bgr, cv2.COLOR_BGR2RGB)
         x_clean = (
             torch.from_numpy(crop_rgb)
@@ -72,6 +107,13 @@ class StrongProtectionEngine:
             .to(self.device)
             / 255.0
         )
+
+        if texture_weighted:
+            w_map_np = compute_texture_weight_map(crop_rgb, w_min=w_min)
+            w_map = torch.from_numpy(w_map_np).unsqueeze(0).unsqueeze(0).to(self.device)
+            eps_bound = eps * w_map
+        else:
+            eps_bound = eps
 
         with torch.no_grad():
             clean_af, clean_fn = self.surrogates(x_clean)
@@ -98,42 +140,62 @@ class StrongProtectionEngine:
 
             with torch.no_grad():
                 delta = delta - alpha * torch.sign(momentum)
-                delta = torch.clamp(delta, -eps, eps)
+                delta = torch.clamp(delta, -eps_bound, eps_bound)
                 delta = torch.clamp(x_clean + delta, 0.0, 1.0) - x_clean
             delta.requires_grad = True
 
-        # Enforce hard floor of target_face_ssim (default 0.90) strictly on face region
-        attenuation = 1.0
-        prot_crop_bgr = crop_112_bgr.copy()
-        final_face_ssim = 1.0
+        if enable_guardrail:
+            # Enforce hard floor of target_face_ssim (default 0.90) strictly on face region
+            attenuation = 1.0
+            prot_crop_bgr = crop_112_bgr.copy()
+            final_face_ssim = 1.0
 
-        with torch.no_grad():
-            while attenuation >= 0.05:
-                cur_delta = delta * attenuation
+            with torch.no_grad():
+                while attenuation >= 0.05:
+                    cur_delta = delta * attenuation
+                    prot_crop_rgb = (
+                        torch.clamp(x_clean + cur_delta, 0.0, 1.0)
+                        .squeeze(0)
+                        .permute(1, 2, 0)
+                        .cpu()
+                        .numpy()
+                        * 255.0
+                    ).round().astype(np.uint8)
+                    candidate_bgr = cv2.cvtColor(prot_crop_rgb, cv2.COLOR_RGB2BGR)
+                    curr_ssim = float(
+                        compute_ssim(crop_112_bgr, candidate_bgr, channel_axis=2, data_range=255)
+                    )
+
+                    if curr_ssim >= target_face_ssim or attenuation <= 0.06:
+                        prot_crop_bgr = candidate_bgr
+                        final_face_ssim = curr_ssim
+                        break
+                    attenuation *= 0.90
+        else:
+            attenuation = 1.0
+            with torch.no_grad():
                 prot_crop_rgb = (
-                    torch.clamp(x_clean + cur_delta, 0.0, 1.0)
+                    torch.clamp(x_clean + delta, 0.0, 1.0)
                     .squeeze(0)
                     .permute(1, 2, 0)
                     .cpu()
                     .numpy()
                     * 255.0
                 ).round().astype(np.uint8)
-                candidate_bgr = cv2.cvtColor(prot_crop_rgb, cv2.COLOR_RGB2BGR)
-                curr_ssim = float(
-                    compute_ssim(crop_112_bgr, candidate_bgr, channel_axis=2, data_range=255)
+                prot_crop_bgr = cv2.cvtColor(prot_crop_rgb, cv2.COLOR_RGB2BGR)
+                final_face_ssim = float(
+                    compute_ssim(crop_112_bgr, prot_crop_bgr, channel_axis=2, data_range=255)
                 )
-
-                if curr_ssim >= target_face_ssim or attenuation <= 0.06:
-                    prot_crop_bgr = candidate_bgr
-                    final_face_ssim = curr_ssim
-                    break
-                attenuation *= 0.90
 
         stats = {
             "steps": steps,
+            "eps": round(float(eps), 5),
+            "alpha": round(float(alpha), 5),
+            "texture_weighted": texture_weighted,
+            "enable_guardrail": enable_guardrail,
             "applied_attenuation": round(attenuation, 3),
             "face_ssim": round(final_face_ssim, 4),
-            "guardrail_satisfied": (final_face_ssim >= target_face_ssim),
+            "guardrail_satisfied": (final_face_ssim >= target_face_ssim) if enable_guardrail else None,
         }
         return prot_crop_bgr, final_face_ssim, stats
 
@@ -141,7 +203,14 @@ class StrongProtectionEngine:
         self,
         img_bgr: np.ndarray,
         faces: List[Dict[str, Any]],
+        steps: int = 25,
+        eps: float = 7.0 / 255.0,
+        alpha: Optional[float] = None,
+        mu: float = 0.9,
         target_face_ssim: float = 0.90,
+        enable_guardrail: bool = True,
+        texture_weighted: bool = False,
+        w_min: float = 0.1,
     ) -> Tuple[np.ndarray, Dict[str, Any]]:
         """
         Aligns, perturbs, and seamlessly composites all detected faces.
@@ -164,7 +233,15 @@ class StrongProtectionEngine:
                 continue
 
             prot_crop, f_ssim, stats = self.protect_face_crop(
-                aligned_crop, target_face_ssim=target_face_ssim
+                aligned_crop,
+                steps=steps,
+                eps=eps,
+                alpha=alpha,
+                mu=mu,
+                target_face_ssim=target_face_ssim,
+                enable_guardrail=enable_guardrail,
+                texture_weighted=texture_weighted,
+                w_min=w_min,
             )
             face_ssims.append(f_ssim)
             details.append(stats)
@@ -176,7 +253,7 @@ class StrongProtectionEngine:
         meta = {
             "faces_processed": len(face_ssims),
             "face_ssim": round(min_face_ssim, 4),
-            "guardrail_satisfied": (min_face_ssim >= target_face_ssim),
+            "guardrail_satisfied": (min_face_ssim >= target_face_ssim) if enable_guardrail else None,
             "face_details": details,
         }
         return protected_img, meta
