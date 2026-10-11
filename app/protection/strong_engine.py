@@ -59,6 +59,55 @@ def compute_texture_weight_map(
     return weight_map.astype(np.float32)
 
 
+def get_canonical_face_mask_112(feather_sigma: float = 4.0) -> np.ndarray:
+    """
+    Standard elliptical blending mask in canonical 112x112 space.
+    Center = (56, 56), axes = (42, 50).
+    """
+    mask = np.zeros((112, 112), dtype=np.float32)
+    cv2.ellipse(mask, (56, 56), (42, 50), 0, 0, 360, 1.0, -1)
+    if feather_sigma > 0:
+        mask = cv2.GaussianBlur(mask, (15, 15), feather_sigma)
+    return mask
+
+
+def rgb_to_cielab_torch(rgb: torch.Tensor) -> torch.Tensor:
+    """
+    Differentiable sRGB to CIELAB conversion in pure PyTorch (D65 standard illuminant).
+    Input: rgb tensor in [0, 1] of shape (B, 3, H, W).
+    Output: lab tensor of shape (B, 3, H, W) where L* in [0, 100], a*, b* in [-128, 127].
+    """
+    rgb_lin = torch.where(
+        rgb <= 0.04045,
+        rgb / 12.92,
+        torch.pow(torch.clamp((rgb + 0.055) / 1.055, min=1e-8), 2.4),
+    )
+    r = rgb_lin[:, 0:1]
+    g = rgb_lin[:, 1:2]
+    b = rgb_lin[:, 2:3]
+
+    # Linear RGB to CIE 1931 XYZ (D65)
+    x = 0.4124564 * r + 0.3575761 * g + 0.1804375 * b
+    y = 0.2126729 * r + 0.7151522 * g + 0.0721750 * b
+    z = 0.0193339 * r + 0.1191920 * g + 0.9503041 * b
+
+    # Normalize by D65 reference white (Xn=0.95047, Yn=1.00000, Zn=1.08883)
+    xr = x / 0.95047
+    yr = y / 1.00000
+    zr = z / 1.08883
+
+    eps_val = 0.008856
+    kappa_val = 903.3
+    fx = torch.where(xr > eps_val, torch.pow(torch.clamp(xr, min=1e-8), 1.0 / 3.0), (kappa_val * xr + 16.0) / 116.0)
+    fy = torch.where(yr > eps_val, torch.pow(torch.clamp(yr, min=1e-8), 1.0 / 3.0), (kappa_val * yr + 16.0) / 116.0)
+    fz = torch.where(zr > eps_val, torch.pow(torch.clamp(zr, min=1e-8), 1.0 / 3.0), (kappa_val * zr + 16.0) / 116.0)
+
+    l_star = 116.0 * fy - 16.0
+    a_star = 500.0 * (fx - fy)
+    b_star = 200.0 * (fy - fz)
+    return torch.cat([l_star, a_star, b_star], dim=1)
+
+
 class StrongProtectionEngine:
     """
     GPU-accelerated Strong Mode engine using EOT-PGD against dual face surrogates.
@@ -88,12 +137,17 @@ class StrongProtectionEngine:
         enable_guardrail: bool = True,
         texture_weighted: bool = False,
         w_min: float = 0.1,
-    ) -> Tuple[np.ndarray, float, Dict[str, Any]]:
+        luminance_only: bool = False,
+        chroma_scale: float = 1.0,
+        cielab_penalty_weight: float = 0.0,
+        return_delta_tensor: bool = False,
+    ) -> Any:
         """
         Runs EOT-PGD on aligned 112x112 face crop and optionally enforces target_face_ssim floor.
 
         Returns:
             (protected_crop_bgr, final_face_ssim, stats_dict)
+            or (protected_crop_bgr, final_face_ssim, stats_dict, delta_tensor, x_clean_tensor) if return_delta_tensor=True
         """
         if alpha is None:
             alpha = eps / 7.0
@@ -134,14 +188,33 @@ class StrongProtectionEngine:
             sim_fn = (adv_fn * clean_fn).sum(dim=1).mean()
             loss = sim_af + 0.5 * sim_fn
 
+            # Task 3: Differentiable CIELAB penalty
+            if cielab_penalty_weight > 0.0:
+                lab_clean = rgb_to_cielab_torch(x_clean)
+                lab_adv = rgb_to_cielab_torch(x_adv)
+                cielab_loss = torch.mean((lab_adv - lab_clean) ** 2)
+                loss = loss + cielab_penalty_weight * cielab_loss
+
             grad = torch.autograd.grad(loss, delta)[0]
             grad_norm = grad.norm(p=1) + 1e-12
             momentum = mu * momentum + grad / grad_norm
 
             with torch.no_grad():
                 delta = delta - alpha * torch.sign(momentum)
+
+                # Task 1: Luminance-only projection / chroma scaling
+                eff_chroma = 0.0 if luminance_only else chroma_scale
+                if eff_chroma < 1.0:
+                    d_lum = delta.mean(dim=1, keepdim=True).repeat(1, 3, 1, 1)
+                    d_chroma = delta - d_lum
+                    delta = d_lum + eff_chroma * d_chroma
+
                 delta = torch.clamp(delta, -eps_bound, eps_bound)
                 delta = torch.clamp(x_clean + delta, 0.0, 1.0) - x_clean
+
+                if eff_chroma == 0.0:
+                    delta = delta.mean(dim=1, keepdim=True).repeat(1, 3, 1, 1)
+
             delta.requires_grad = True
 
         if enable_guardrail:
@@ -192,12 +265,110 @@ class StrongProtectionEngine:
             "eps": round(float(eps), 5),
             "alpha": round(float(alpha), 5),
             "texture_weighted": texture_weighted,
+            "luminance_only": luminance_only,
+            "chroma_scale": chroma_scale,
+            "cielab_penalty_weight": cielab_penalty_weight,
             "enable_guardrail": enable_guardrail,
             "applied_attenuation": round(attenuation, 3),
             "face_ssim": round(final_face_ssim, 4),
             "guardrail_satisfied": (final_face_ssim >= target_face_ssim) if enable_guardrail else None,
         }
+        if return_delta_tensor:
+            return prot_crop_bgr, final_face_ssim, stats, delta.detach(), x_clean.detach()
         return prot_crop_bgr, final_face_ssim, stats
+
+    def protect_face_crop_adaptive(
+        self,
+        crop_112_bgr: np.ndarray,
+        target_ciede_mean: float = 0.9,
+        target_ciede_p95: float = 2.5,
+        eps_max: float = 12.0 / 255.0,
+        steps: int = 25,
+        bisection_steps: int = 8,
+        luminance_only: bool = False,
+        chroma_scale: float = 1.0,
+        cielab_penalty_weight: float = 0.0,
+    ) -> Tuple[np.ndarray, float, Dict[str, Any]]:
+        """
+        Runs PGD once at eps_max, then performs bisection search over scale s in [0, 1]
+        to find the largest perturbation that meets the perceptual CIEDE2000 targets
+        (mean <= target_ciede_mean and p95 <= target_ciede_p95) on the face region.
+        """
+        from skimage.color import rgb2lab, deltaE_ciede2000
+
+        _, _, _, delta_max, x_clean = self.protect_face_crop(
+            crop_112_bgr=crop_112_bgr,
+            steps=steps,
+            eps=eps_max,
+            enable_guardrail=False,
+            luminance_only=luminance_only,
+            chroma_scale=chroma_scale,
+            cielab_penalty_weight=cielab_penalty_weight,
+            return_delta_tensor=True,
+        )
+
+        face_mask = (get_canonical_face_mask_112() >= 0.10)
+        crop_rgb = cv2.cvtColor(crop_112_bgr, cv2.COLOR_BGR2RGB)
+        clean_lab = rgb2lab(crop_rgb / 255.0)
+
+        def eval_scale(s_val: float) -> Tuple[float, float, float, np.ndarray]:
+            cur_delta = delta_max * s_val
+            prot_rgb = (
+                torch.clamp(x_clean + cur_delta, 0.0, 1.0)
+                .squeeze(0)
+                .permute(1, 2, 0)
+                .cpu()
+                .numpy()
+                * 255.0
+            ).round().astype(np.uint8)
+            prot_lab = rgb2lab(prot_rgb / 255.0)
+            de_map = deltaE_ciede2000(clean_lab, prot_lab)[face_mask]
+            m_de = float(np.mean(de_map))
+            p95_de = float(np.percentile(de_map, 95.0))
+            p99_de = float(np.percentile(de_map, 99.0))
+            return m_de, p95_de, p99_de, prot_rgb
+
+        # Check full strength s=1.0
+        m1, p1, p99_1, rgb1 = eval_scale(1.0)
+        if m1 <= target_ciede_mean and p1 <= target_ciede_p95:
+            best_s = 1.0
+            best_m, best_p, best_p99, best_rgb = m1, p1, p99_1, rgb1
+            target_met = True
+        else:
+            low = 0.0
+            high = 1.0
+            best_s = 0.0
+            best_m, best_p, best_p99, best_rgb = eval_scale(0.0)
+            target_met = True
+
+            for _ in range(bisection_steps):
+                mid = (low + high) / 2.0
+                m_mid, p_mid, p99_mid, rgb_mid = eval_scale(mid)
+                if m_mid <= target_ciede_mean and p_mid <= target_ciede_p95:
+                    best_s = mid
+                    best_m, best_p, best_p99, best_rgb = m_mid, p_mid, p99_mid, rgb_mid
+                    low = mid
+                else:
+                    high = mid
+
+        prot_bgr = cv2.cvtColor(best_rgb, cv2.COLOR_RGB2BGR)
+        final_face_ssim = float(compute_ssim(crop_112_bgr, prot_bgr, channel_axis=2, data_range=255))
+
+        stats = {
+            "adaptive": True,
+            "adaptive_scale_s": round(best_s, 4),
+            "target_met": bool(best_m <= target_ciede_mean and best_p <= target_ciede_p95),
+            "target_ciede_mean": target_ciede_mean,
+            "target_ciede_p95": target_ciede_p95,
+            "achieved_ciede_mean": round(best_m, 3),
+            "achieved_ciede_p95": round(best_p, 3),
+            "achieved_ciede_p99": round(best_p99, 3),
+            "face_ssim": round(final_face_ssim, 4),
+            "luminance_only": luminance_only,
+            "chroma_scale": chroma_scale,
+            "eps_max": round(float(eps_max), 5),
+        }
+        return prot_bgr, final_face_ssim, stats
 
     def protect_image(
         self,
@@ -211,6 +382,14 @@ class StrongProtectionEngine:
         enable_guardrail: bool = True,
         texture_weighted: bool = False,
         w_min: float = 0.1,
+        luminance_only: bool = False,
+        chroma_scale: float = 1.0,
+        cielab_penalty_weight: float = 0.0,
+        adaptive: bool = False,
+        target_ciede_mean: float = 0.9,
+        target_ciede_p95: float = 2.5,
+        eps_max: float = 12.0 / 255.0,
+        bisection_steps: int = 8,
     ) -> Tuple[np.ndarray, Dict[str, Any]]:
         """
         Aligns, perturbs, and seamlessly composites all detected faces.
@@ -232,17 +411,33 @@ class StrongProtectionEngine:
             if aligned_crop is None or M is None:
                 continue
 
-            prot_crop, f_ssim, stats = self.protect_face_crop(
-                aligned_crop,
-                steps=steps,
-                eps=eps,
-                alpha=alpha,
-                mu=mu,
-                target_face_ssim=target_face_ssim,
-                enable_guardrail=enable_guardrail,
-                texture_weighted=texture_weighted,
-                w_min=w_min,
-            )
+            if adaptive:
+                prot_crop, f_ssim, stats = self.protect_face_crop_adaptive(
+                    aligned_crop,
+                    target_ciede_mean=target_ciede_mean,
+                    target_ciede_p95=target_ciede_p95,
+                    eps_max=eps_max,
+                    steps=steps,
+                    bisection_steps=bisection_steps,
+                    luminance_only=luminance_only,
+                    chroma_scale=chroma_scale,
+                    cielab_penalty_weight=cielab_penalty_weight,
+                )
+            else:
+                prot_crop, f_ssim, stats = self.protect_face_crop(
+                    aligned_crop,
+                    steps=steps,
+                    eps=eps,
+                    alpha=alpha,
+                    mu=mu,
+                    target_face_ssim=target_face_ssim,
+                    enable_guardrail=enable_guardrail,
+                    texture_weighted=texture_weighted,
+                    w_min=w_min,
+                    luminance_only=luminance_only,
+                    chroma_scale=chroma_scale,
+                    cielab_penalty_weight=cielab_penalty_weight,
+                )
             face_ssims.append(f_ssim)
             details.append(stats)
 
@@ -253,7 +448,7 @@ class StrongProtectionEngine:
         meta = {
             "faces_processed": len(face_ssims),
             "face_ssim": round(min_face_ssim, 4),
-            "guardrail_satisfied": (min_face_ssim >= target_face_ssim) if enable_guardrail else None,
+            "guardrail_satisfied": (min_face_ssim >= target_face_ssim) if (enable_guardrail and not adaptive) else None,
             "face_details": details,
         }
         return protected_img, meta
