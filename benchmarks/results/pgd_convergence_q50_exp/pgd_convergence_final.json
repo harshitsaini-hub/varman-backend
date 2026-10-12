@@ -1,0 +1,2749 @@
+{
+  "benchmark_metadata": {
+    "device": "cuda:0",
+    "gpu_name": "NVIDIA GeForce RTX 2050",
+    "epsilon": "8/255 (0.03137)",
+    "smoke_test": false,
+    "lfw_pairs_count": 150,
+    "real_pairs_count": 26,
+    "formats_evaluated": [
+      "png",
+      "q75",
+      "q50"
+    ],
+    "models_surrogate": [
+      "ArcFace",
+      "FaceNet"
+    ],
+    "models_held_out": [
+      "SFace",
+      "MobileFaceNet"
+    ],
+    "thresholds_1pct": {
+      "FaceNet": 0.3754,
+      "ArcFace": 0.1476,
+      "SFace": 0.292,
+      "MobileFaceNet": 0.1688
+    },
+    "thresholds_01pct": {
+      "FaceNet": 0.4555,
+      "ArcFace": 0.1828,
+      "SFace": 0.3315,
+      "MobileFaceNet": 0.2065
+    }
+  },
+  "candidates": {
+    "control": {
+      "candidate_id": "control",
+      "candidate_name": "Unprotected Control",
+      "steps": 0,
+      "schedule": "none",
+      "is_control": true,
+      "lfw": {
+        "formats": {
+          "png": {
+            "FaceNet": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                2.62
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                2.67
+              ],
+              "mean_sim_drop": 0.0
+            },
+            "ArcFace": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                2.63
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                2.63
+              ],
+              "mean_sim_drop": 0.0
+            },
+            "SFace": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                2.65
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                2.69
+              ],
+              "mean_sim_drop": 0.0
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                2.63
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                2.65
+              ],
+              "mean_sim_drop": 0.0
+            }
+          },
+          "q75": {
+            "FaceNet": {
+              "flips_1pct_k": 1,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 0.7,
+              "flips_1pct_ci": [
+                0.12,
+                3.85
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                2.67
+              ],
+              "mean_sim_drop": 0.0009
+            },
+            "ArcFace": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                2.63
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                2.63
+              ],
+              "mean_sim_drop": 0.0031
+            },
+            "SFace": {
+              "flips_1pct_k": 1,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 0.71,
+              "flips_1pct_ci": [
+                0.13,
+                3.91
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                2.69
+              ],
+              "mean_sim_drop": 0.0019
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                2.63
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                2.65
+              ],
+              "mean_sim_drop": 0.0026
+            }
+          },
+          "q50": {
+            "FaceNet": {
+              "flips_1pct_k": 1,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 0.7,
+              "flips_1pct_ci": [
+                0.12,
+                3.85
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                2.67
+              ],
+              "mean_sim_drop": 0.0048
+            },
+            "ArcFace": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                2.63
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                2.63
+              ],
+              "mean_sim_drop": 0.0093
+            },
+            "SFace": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                2.65
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                2.69
+              ],
+              "mean_sim_drop": 0.0078
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                2.63
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                2.65
+              ],
+              "mean_sim_drop": 0.0103
+            }
+          }
+        }
+      },
+      "real": {
+        "formats": {
+          "png": {
+            "FaceNet": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                12.87
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                12.87
+              ],
+              "mean_sim_drop": 0.0
+            },
+            "ArcFace": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                12.87
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                12.87
+              ],
+              "mean_sim_drop": 0.0
+            },
+            "SFace": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                12.87
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                12.87
+              ],
+              "mean_sim_drop": 0.0
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                12.87
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                12.87
+              ],
+              "mean_sim_drop": 0.0
+            }
+          },
+          "q75": {
+            "FaceNet": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                12.87
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                12.87
+              ],
+              "mean_sim_drop": 0.0029
+            },
+            "ArcFace": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                12.87
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                12.87
+              ],
+              "mean_sim_drop": -0.0032
+            },
+            "SFace": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                12.87
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                12.87
+              ],
+              "mean_sim_drop": -0.0041
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                12.87
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                12.87
+              ],
+              "mean_sim_drop": -0.0017
+            }
+          },
+          "q50": {
+            "FaceNet": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                12.87
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                12.87
+              ],
+              "mean_sim_drop": 0.0046
+            },
+            "ArcFace": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                12.87
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                12.87
+              ],
+              "mean_sim_drop": 0.0064
+            },
+            "SFace": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                12.87
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                12.87
+              ],
+              "mean_sim_drop": 0.0078
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 0,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 0.0,
+              "flips_1pct_ci": [
+                0.0,
+                12.87
+              ],
+              "flips_01pct_k": 0,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 0.0,
+              "flips_01pct_ci": [
+                0.0,
+                12.87
+              ],
+              "mean_sim_drop": -0.0037
+            }
+          }
+        }
+      },
+      "visibility": {
+        "lfw": {
+          "face_ssim": 1.0,
+          "ciede_mean": 0.0,
+          "ciede_std_of_means": 0.0,
+          "ciede_p95": 0.0,
+          "ciede_p99": 0.0,
+          "mean_latency_sec": 0.0
+        },
+        "real": {
+          "face_ssim": 1.0,
+          "ciede_mean": 0.0,
+          "ciede_std_of_means": 0.0,
+          "ciede_p95": 0.0,
+          "ciede_p99": 0.0
+        }
+      }
+    },
+    "cand_A": {
+      "candidate_id": "cand_A",
+      "candidate_name": "Candidate A - Baseline (25 steps, fixed)",
+      "steps": 25,
+      "schedule": "fixed",
+      "is_control": false,
+      "lfw": {
+        "formats": {
+          "png": {
+            "FaceNet": {
+              "flips_1pct_k": 39,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 27.27,
+              "flips_1pct_ci": [
+                20.64,
+                35.1
+              ],
+              "flips_01pct_k": 61,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 43.57,
+              "flips_01pct_ci": [
+                35.64,
+                51.85
+              ],
+              "mean_sim_drop": 0.2888
+            },
+            "ArcFace": {
+              "flips_1pct_k": 27,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 19.01,
+              "flips_1pct_ci": [
+                13.41,
+                26.25
+              ],
+              "flips_01pct_k": 36,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 25.35,
+              "flips_01pct_ci": [
+                18.91,
+                33.09
+              ],
+              "mean_sim_drop": 0.3638
+            },
+            "SFace": {
+              "flips_1pct_k": 34,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 24.11,
+              "flips_1pct_ci": [
+                17.8,
+                31.8
+              ],
+              "flips_01pct_k": 38,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 27.34,
+              "flips_01pct_ci": [
+                20.61,
+                35.28
+              ],
+              "mean_sim_drop": 0.2562
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 25,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 17.61,
+              "flips_1pct_ci": [
+                12.22,
+                24.7
+              ],
+              "flips_01pct_k": 32,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 22.7,
+              "flips_01pct_ci": [
+                16.56,
+                30.28
+              ],
+              "mean_sim_drop": 0.2562
+            }
+          },
+          "q75": {
+            "FaceNet": {
+              "flips_1pct_k": 38,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 26.57,
+              "flips_1pct_ci": [
+                20.02,
+                34.36
+              ],
+              "flips_01pct_k": 57,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 40.71,
+              "flips_01pct_ci": [
+                32.93,
+                48.99
+              ],
+              "mean_sim_drop": 0.2807
+            },
+            "ArcFace": {
+              "flips_1pct_k": 24,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 16.9,
+              "flips_1pct_ci": [
+                11.63,
+                23.92
+              ],
+              "flips_01pct_k": 33,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 23.24,
+              "flips_01pct_ci": [
+                17.05,
+                30.84
+              ],
+              "mean_sim_drop": 0.3463
+            },
+            "SFace": {
+              "flips_1pct_k": 30,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 21.28,
+              "flips_1pct_ci": [
+                15.33,
+                28.75
+              ],
+              "flips_01pct_k": 39,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 28.06,
+              "flips_01pct_ci": [
+                21.26,
+                36.04
+              ],
+              "mean_sim_drop": 0.2481
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 24,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 16.9,
+              "flips_1pct_ci": [
+                11.63,
+                23.92
+              ],
+              "flips_01pct_k": 31,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 21.99,
+              "flips_01pct_ci": [
+                15.94,
+                29.51
+              ],
+              "mean_sim_drop": 0.2526
+            }
+          },
+          "q50": {
+            "FaceNet": {
+              "flips_1pct_k": 35,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 24.48,
+              "flips_1pct_ci": [
+                18.16,
+                32.13
+              ],
+              "flips_01pct_k": 58,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 41.43,
+              "flips_01pct_ci": [
+                33.6,
+                49.71
+              ],
+              "mean_sim_drop": 0.2761
+            },
+            "ArcFace": {
+              "flips_1pct_k": 17,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 11.97,
+              "flips_1pct_ci": [
+                7.61,
+                18.34
+              ],
+              "flips_01pct_k": 28,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 19.72,
+              "flips_01pct_ci": [
+                14.01,
+                27.02
+              ],
+              "mean_sim_drop": 0.3236
+            },
+            "SFace": {
+              "flips_1pct_k": 30,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 21.28,
+              "flips_1pct_ci": [
+                15.33,
+                28.75
+              ],
+              "flips_01pct_k": 38,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 27.34,
+              "flips_01pct_ci": [
+                20.61,
+                35.28
+              ],
+              "mean_sim_drop": 0.2458
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 22,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 15.49,
+              "flips_1pct_ci": [
+                10.46,
+                22.34
+              ],
+              "flips_01pct_k": 29,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 20.57,
+              "flips_01pct_ci": [
+                14.72,
+                27.98
+              ],
+              "mean_sim_drop": 0.2444
+            }
+          }
+        }
+      },
+      "real": {
+        "formats": {
+          "png": {
+            "FaceNet": {
+              "flips_1pct_k": 9,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 34.62,
+              "flips_1pct_ci": [
+                19.41,
+                53.78
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.3375
+            },
+            "ArcFace": {
+              "flips_1pct_k": 7,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 26.92,
+              "flips_1pct_ci": [
+                13.7,
+                46.08
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.4233
+            },
+            "SFace": {
+              "flips_1pct_k": 5,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 19.23,
+              "flips_1pct_ci": [
+                8.51,
+                37.88
+              ],
+              "flips_01pct_k": 9,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 34.62,
+              "flips_01pct_ci": [
+                19.41,
+                53.78
+              ],
+              "mean_sim_drop": 0.2492
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 6,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 23.08,
+              "flips_1pct_ci": [
+                11.03,
+                42.05
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.264
+            }
+          },
+          "q75": {
+            "FaceNet": {
+              "flips_1pct_k": 8,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 30.77,
+              "flips_1pct_ci": [
+                16.5,
+                49.99
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.3371
+            },
+            "ArcFace": {
+              "flips_1pct_k": 7,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 26.92,
+              "flips_1pct_ci": [
+                13.7,
+                46.08
+              ],
+              "flips_01pct_k": 11,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 42.31,
+              "flips_01pct_ci": [
+                25.54,
+                61.05
+              ],
+              "mean_sim_drop": 0.4143
+            },
+            "SFace": {
+              "flips_1pct_k": 5,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 19.23,
+              "flips_1pct_ci": [
+                8.51,
+                37.88
+              ],
+              "flips_01pct_k": 8,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 30.77,
+              "flips_01pct_ci": [
+                16.5,
+                49.99
+              ],
+              "mean_sim_drop": 0.24
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 6,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 23.08,
+              "flips_1pct_ci": [
+                11.03,
+                42.05
+              ],
+              "flips_01pct_k": 8,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 30.77,
+              "flips_01pct_ci": [
+                16.5,
+                49.99
+              ],
+              "mean_sim_drop": 0.2553
+            }
+          },
+          "q50": {
+            "FaceNet": {
+              "flips_1pct_k": 8,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 30.77,
+              "flips_1pct_ci": [
+                16.5,
+                49.99
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.3091
+            },
+            "ArcFace": {
+              "flips_1pct_k": 4,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 15.38,
+              "flips_1pct_ci": [
+                6.15,
+                33.53
+              ],
+              "flips_01pct_k": 8,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 30.77,
+              "flips_01pct_ci": [
+                16.5,
+                49.99
+              ],
+              "mean_sim_drop": 0.386
+            },
+            "SFace": {
+              "flips_1pct_k": 6,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 23.08,
+              "flips_1pct_ci": [
+                11.03,
+                42.05
+              ],
+              "flips_01pct_k": 9,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 34.62,
+              "flips_01pct_ci": [
+                19.41,
+                53.78
+              ],
+              "mean_sim_drop": 0.2411
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 6,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 23.08,
+              "flips_1pct_ci": [
+                11.03,
+                42.05
+              ],
+              "flips_01pct_k": 7,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 26.92,
+              "flips_01pct_ci": [
+                13.7,
+                46.08
+              ],
+              "mean_sim_drop": 0.2512
+            }
+          }
+        }
+      },
+      "visibility": {
+        "lfw": {
+          "face_ssim": 0.9491,
+          "ciede_mean": 1.352,
+          "ciede_std_of_means": 0.0829,
+          "ciede_p95": 2.847,
+          "ciede_p99": 3.6262,
+          "mean_latency_sec": 2.075
+        },
+        "real": {
+          "face_ssim": 0.9293,
+          "ciede_mean": 1.4874,
+          "ciede_std_of_means": 0.1627,
+          "ciede_p95": 2.9191,
+          "ciede_p99": 3.4705
+        }
+      }
+    },
+    "cand_B": {
+      "candidate_id": "cand_B",
+      "candidate_name": "Candidate B - Longer horizon (50 steps, fixed)",
+      "steps": 50,
+      "schedule": "fixed",
+      "is_control": false,
+      "lfw": {
+        "formats": {
+          "png": {
+            "FaceNet": {
+              "flips_1pct_k": 48,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 33.57,
+              "flips_1pct_ci": [
+                26.35,
+                41.65
+              ],
+              "flips_01pct_k": 68,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 48.57,
+              "flips_01pct_ci": [
+                40.44,
+                56.78
+              ],
+              "mean_sim_drop": 0.3058
+            },
+            "ArcFace": {
+              "flips_1pct_k": 26,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 18.31,
+              "flips_1pct_ci": [
+                12.81,
+                25.48
+              ],
+              "flips_01pct_k": 37,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 26.06,
+              "flips_01pct_ci": [
+                19.54,
+                33.84
+              ],
+              "mean_sim_drop": 0.3597
+            },
+            "SFace": {
+              "flips_1pct_k": 35,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 24.82,
+              "flips_1pct_ci": [
+                18.42,
+                32.56
+              ],
+              "flips_01pct_k": 44,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 31.65,
+              "flips_01pct_ci": [
+                24.5,
+                39.79
+              ],
+              "mean_sim_drop": 0.2664
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 28,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 19.72,
+              "flips_1pct_ci": [
+                14.01,
+                27.02
+              ],
+              "flips_01pct_k": 37,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 26.24,
+              "flips_01pct_ci": [
+                19.68,
+                34.06
+              ],
+              "mean_sim_drop": 0.2665
+            }
+          },
+          "q75": {
+            "FaceNet": {
+              "flips_1pct_k": 42,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 29.37,
+              "flips_1pct_ci": [
+                22.52,
+                37.3
+              ],
+              "flips_01pct_k": 67,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 47.86,
+              "flips_01pct_ci": [
+                39.75,
+                56.08
+              ],
+              "mean_sim_drop": 0.2965
+            },
+            "ArcFace": {
+              "flips_1pct_k": 23,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 16.2,
+              "flips_1pct_ci": [
+                11.04,
+                23.13
+              ],
+              "flips_01pct_k": 32,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 22.54,
+              "flips_01pct_ci": [
+                16.44,
+                30.08
+              ],
+              "mean_sim_drop": 0.3383
+            },
+            "SFace": {
+              "flips_1pct_k": 31,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 21.99,
+              "flips_1pct_ci": [
+                15.94,
+                29.51
+              ],
+              "flips_01pct_k": 39,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 28.06,
+              "flips_01pct_ci": [
+                21.26,
+                36.04
+              ],
+              "mean_sim_drop": 0.2581
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 29,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 20.42,
+              "flips_1pct_ci": [
+                14.61,
+                27.79
+              ],
+              "flips_01pct_k": 37,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 26.24,
+              "flips_01pct_ci": [
+                19.68,
+                34.06
+              ],
+              "mean_sim_drop": 0.2598
+            }
+          },
+          "q50": {
+            "FaceNet": {
+              "flips_1pct_k": 41,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 28.67,
+              "flips_1pct_ci": [
+                21.89,
+                36.56
+              ],
+              "flips_01pct_k": 66,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 47.14,
+              "flips_01pct_ci": [
+                39.06,
+                55.38
+              ],
+              "mean_sim_drop": 0.2894
+            },
+            "ArcFace": {
+              "flips_1pct_k": 17,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 11.97,
+              "flips_1pct_ci": [
+                7.61,
+                18.34
+              ],
+              "flips_01pct_k": 23,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 16.2,
+              "flips_01pct_ci": [
+                11.04,
+                23.13
+              ],
+              "mean_sim_drop": 0.3158
+            },
+            "SFace": {
+              "flips_1pct_k": 33,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 23.4,
+              "flips_1pct_ci": [
+                17.18,
+                31.04
+              ],
+              "flips_01pct_k": 37,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 26.62,
+              "flips_01pct_ci": [
+                19.97,
+                34.52
+              ],
+              "mean_sim_drop": 0.2551
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 25,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 17.61,
+              "flips_1pct_ci": [
+                12.22,
+                24.7
+              ],
+              "flips_01pct_k": 31,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 21.99,
+              "flips_01pct_ci": [
+                15.94,
+                29.51
+              ],
+              "mean_sim_drop": 0.2519
+            }
+          }
+        }
+      },
+      "real": {
+        "formats": {
+          "png": {
+            "FaceNet": {
+              "flips_1pct_k": 9,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 34.62,
+              "flips_1pct_ci": [
+                19.41,
+                53.78
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.3659
+            },
+            "ArcFace": {
+              "flips_1pct_k": 9,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 34.62,
+              "flips_1pct_ci": [
+                19.41,
+                53.78
+              ],
+              "flips_01pct_k": 11,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 42.31,
+              "flips_01pct_ci": [
+                25.54,
+                61.05
+              ],
+              "mean_sim_drop": 0.4115
+            },
+            "SFace": {
+              "flips_1pct_k": 7,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 26.92,
+              "flips_1pct_ci": [
+                13.7,
+                46.08
+              ],
+              "flips_01pct_k": 11,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 42.31,
+              "flips_01pct_ci": [
+                25.54,
+                61.05
+              ],
+              "mean_sim_drop": 0.2635
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 5,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 19.23,
+              "flips_1pct_ci": [
+                8.51,
+                37.88
+              ],
+              "flips_01pct_k": 12,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 46.15,
+              "flips_01pct_ci": [
+                28.76,
+                64.54
+              ],
+              "mean_sim_drop": 0.2732
+            }
+          },
+          "q75": {
+            "FaceNet": {
+              "flips_1pct_k": 9,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 34.62,
+              "flips_1pct_ci": [
+                19.41,
+                53.78
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.3571
+            },
+            "ArcFace": {
+              "flips_1pct_k": 6,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 23.08,
+              "flips_1pct_ci": [
+                11.03,
+                42.05
+              ],
+              "flips_01pct_k": 9,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 34.62,
+              "flips_01pct_ci": [
+                19.41,
+                53.78
+              ],
+              "mean_sim_drop": 0.3892
+            },
+            "SFace": {
+              "flips_1pct_k": 8,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 30.77,
+              "flips_1pct_ci": [
+                16.5,
+                49.99
+              ],
+              "flips_01pct_k": 12,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 46.15,
+              "flips_01pct_ci": [
+                28.76,
+                64.54
+              ],
+              "mean_sim_drop": 0.2694
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 5,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 19.23,
+              "flips_1pct_ci": [
+                8.51,
+                37.88
+              ],
+              "flips_01pct_k": 8,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 30.77,
+              "flips_01pct_ci": [
+                16.5,
+                49.99
+              ],
+              "mean_sim_drop": 0.2597
+            }
+          },
+          "q50": {
+            "FaceNet": {
+              "flips_1pct_k": 9,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 34.62,
+              "flips_1pct_ci": [
+                19.41,
+                53.78
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.3451
+            },
+            "ArcFace": {
+              "flips_1pct_k": 6,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 23.08,
+              "flips_1pct_ci": [
+                11.03,
+                42.05
+              ],
+              "flips_01pct_k": 9,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 34.62,
+              "flips_01pct_ci": [
+                19.41,
+                53.78
+              ],
+              "mean_sim_drop": 0.3614
+            },
+            "SFace": {
+              "flips_1pct_k": 5,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 19.23,
+              "flips_1pct_ci": [
+                8.51,
+                37.88
+              ],
+              "flips_01pct_k": 12,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 46.15,
+              "flips_01pct_ci": [
+                28.76,
+                64.54
+              ],
+              "mean_sim_drop": 0.2533
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 5,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 19.23,
+              "flips_1pct_ci": [
+                8.51,
+                37.88
+              ],
+              "flips_01pct_k": 6,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 23.08,
+              "flips_01pct_ci": [
+                11.03,
+                42.05
+              ],
+              "mean_sim_drop": 0.2529
+            }
+          }
+        }
+      },
+      "visibility": {
+        "lfw": {
+          "face_ssim": 0.9475,
+          "ciede_mean": 1.3867,
+          "ciede_std_of_means": 0.0885,
+          "ciede_p95": 2.9028,
+          "ciede_p99": 3.7047,
+          "mean_latency_sec": 4.094
+        },
+        "real": {
+          "face_ssim": 0.9282,
+          "ciede_mean": 1.5227,
+          "ciede_std_of_means": 0.1846,
+          "ciede_p95": 2.9428,
+          "ciede_p99": 3.5019
+        }
+      }
+    },
+    "cand_C": {
+      "candidate_id": "cand_C",
+      "candidate_name": "Candidate C - Longer horizon (75 steps, fixed)",
+      "steps": 75,
+      "schedule": "fixed",
+      "is_control": false,
+      "lfw": {
+        "formats": {
+          "png": {
+            "FaceNet": {
+              "flips_1pct_k": 46,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 32.17,
+              "flips_1pct_ci": [
+                25.06,
+                40.2
+              ],
+              "flips_01pct_k": 62,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 44.29,
+              "flips_01pct_ci": [
+                36.32,
+                52.56
+              ],
+              "mean_sim_drop": 0.3047
+            },
+            "ArcFace": {
+              "flips_1pct_k": 24,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 16.9,
+              "flips_1pct_ci": [
+                11.63,
+                23.92
+              ],
+              "flips_01pct_k": 34,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 23.94,
+              "flips_01pct_ci": [
+                17.67,
+                31.59
+              ],
+              "mean_sim_drop": 0.3513
+            },
+            "SFace": {
+              "flips_1pct_k": 34,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 24.11,
+              "flips_1pct_ci": [
+                17.8,
+                31.8
+              ],
+              "flips_01pct_k": 40,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 28.78,
+              "flips_01pct_ci": [
+                21.9,
+                36.79
+              ],
+              "mean_sim_drop": 0.2652
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 28,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 19.72,
+              "flips_1pct_ci": [
+                14.01,
+                27.02
+              ],
+              "flips_01pct_k": 35,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 24.82,
+              "flips_01pct_ci": [
+                18.42,
+                32.56
+              ],
+              "mean_sim_drop": 0.2651
+            }
+          },
+          "q75": {
+            "FaceNet": {
+              "flips_1pct_k": 41,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 28.67,
+              "flips_1pct_ci": [
+                21.89,
+                36.56
+              ],
+              "flips_01pct_k": 61,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 43.57,
+              "flips_01pct_ci": [
+                35.64,
+                51.85
+              ],
+              "mean_sim_drop": 0.2956
+            },
+            "ArcFace": {
+              "flips_1pct_k": 19,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 13.38,
+              "flips_1pct_ci": [
+                8.74,
+                19.95
+              ],
+              "flips_01pct_k": 29,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 20.42,
+              "flips_01pct_ci": [
+                14.61,
+                27.79
+              ],
+              "mean_sim_drop": 0.3272
+            },
+            "SFace": {
+              "flips_1pct_k": 32,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 22.7,
+              "flips_1pct_ci": [
+                16.56,
+                30.28
+              ],
+              "flips_01pct_k": 39,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 28.06,
+              "flips_01pct_ci": [
+                21.26,
+                36.04
+              ],
+              "mean_sim_drop": 0.2565
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 26,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 18.31,
+              "flips_1pct_ci": [
+                12.81,
+                25.48
+              ],
+              "flips_01pct_k": 36,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 25.53,
+              "flips_01pct_ci": [
+                19.05,
+                33.31
+              ],
+              "mean_sim_drop": 0.26
+            }
+          },
+          "q50": {
+            "FaceNet": {
+              "flips_1pct_k": 40,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 27.97,
+              "flips_1pct_ci": [
+                21.27,
+                35.83
+              ],
+              "flips_01pct_k": 57,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 40.71,
+              "flips_01pct_ci": [
+                32.93,
+                48.99
+              ],
+              "mean_sim_drop": 0.2826
+            },
+            "ArcFace": {
+              "flips_1pct_k": 11,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 7.75,
+              "flips_1pct_ci": [
+                4.38,
+                13.34
+              ],
+              "flips_01pct_k": 19,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 13.38,
+              "flips_01pct_ci": [
+                8.74,
+                19.95
+              ],
+              "mean_sim_drop": 0.3028
+            },
+            "SFace": {
+              "flips_1pct_k": 31,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 21.99,
+              "flips_1pct_ci": [
+                15.94,
+                29.51
+              ],
+              "flips_01pct_k": 37,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 26.62,
+              "flips_01pct_ci": [
+                19.97,
+                34.52
+              ],
+              "mean_sim_drop": 0.2506
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 22,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 15.49,
+              "flips_1pct_ci": [
+                10.46,
+                22.34
+              ],
+              "flips_01pct_k": 27,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 19.15,
+              "flips_01pct_ci": [
+                13.51,
+                26.43
+              ],
+              "mean_sim_drop": 0.2498
+            }
+          }
+        }
+      },
+      "real": {
+        "formats": {
+          "png": {
+            "FaceNet": {
+              "flips_1pct_k": 9,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 34.62,
+              "flips_1pct_ci": [
+                19.41,
+                53.78
+              ],
+              "flips_01pct_k": 12,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 46.15,
+              "flips_01pct_ci": [
+                28.76,
+                64.54
+              ],
+              "mean_sim_drop": 0.3898
+            },
+            "ArcFace": {
+              "flips_1pct_k": 9,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 34.62,
+              "flips_1pct_ci": [
+                19.41,
+                53.78
+              ],
+              "flips_01pct_k": 11,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 42.31,
+              "flips_01pct_ci": [
+                25.54,
+                61.05
+              ],
+              "mean_sim_drop": 0.4078
+            },
+            "SFace": {
+              "flips_1pct_k": 8,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 30.77,
+              "flips_1pct_ci": [
+                16.5,
+                49.99
+              ],
+              "flips_01pct_k": 11,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 42.31,
+              "flips_01pct_ci": [
+                25.54,
+                61.05
+              ],
+              "mean_sim_drop": 0.2648
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 5,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 19.23,
+              "flips_1pct_ci": [
+                8.51,
+                37.88
+              ],
+              "flips_01pct_k": 11,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 42.31,
+              "flips_01pct_ci": [
+                25.54,
+                61.05
+              ],
+              "mean_sim_drop": 0.2729
+            }
+          },
+          "q75": {
+            "FaceNet": {
+              "flips_1pct_k": 9,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 34.62,
+              "flips_1pct_ci": [
+                19.41,
+                53.78
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.3703
+            },
+            "ArcFace": {
+              "flips_1pct_k": 6,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 23.08,
+              "flips_1pct_ci": [
+                11.03,
+                42.05
+              ],
+              "flips_01pct_k": 8,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 30.77,
+              "flips_01pct_ci": [
+                16.5,
+                49.99
+              ],
+              "mean_sim_drop": 0.3694
+            },
+            "SFace": {
+              "flips_1pct_k": 7,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 26.92,
+              "flips_1pct_ci": [
+                13.7,
+                46.08
+              ],
+              "flips_01pct_k": 12,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 46.15,
+              "flips_01pct_ci": [
+                28.76,
+                64.54
+              ],
+              "mean_sim_drop": 0.2566
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 5,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 19.23,
+              "flips_1pct_ci": [
+                8.51,
+                37.88
+              ],
+              "flips_01pct_k": 9,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 34.62,
+              "flips_01pct_ci": [
+                19.41,
+                53.78
+              ],
+              "mean_sim_drop": 0.2677
+            }
+          },
+          "q50": {
+            "FaceNet": {
+              "flips_1pct_k": 9,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 34.62,
+              "flips_1pct_ci": [
+                19.41,
+                53.78
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.3668
+            },
+            "ArcFace": {
+              "flips_1pct_k": 4,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 15.38,
+              "flips_1pct_ci": [
+                6.15,
+                33.53
+              ],
+              "flips_01pct_k": 7,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 26.92,
+              "flips_01pct_ci": [
+                13.7,
+                46.08
+              ],
+              "mean_sim_drop": 0.3533
+            },
+            "SFace": {
+              "flips_1pct_k": 8,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 30.77,
+              "flips_1pct_ci": [
+                16.5,
+                49.99
+              ],
+              "flips_01pct_k": 12,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 46.15,
+              "flips_01pct_ci": [
+                28.76,
+                64.54
+              ],
+              "mean_sim_drop": 0.2601
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 6,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 23.08,
+              "flips_1pct_ci": [
+                11.03,
+                42.05
+              ],
+              "flips_01pct_k": 9,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 34.62,
+              "flips_01pct_ci": [
+                19.41,
+                53.78
+              ],
+              "mean_sim_drop": 0.2637
+            }
+          }
+        }
+      },
+      "visibility": {
+        "lfw": {
+          "face_ssim": 0.9468,
+          "ciede_mean": 1.3982,
+          "ciede_std_of_means": 0.09,
+          "ciede_p95": 2.9195,
+          "ciede_p99": 3.7352,
+          "mean_latency_sec": 6.09
+        },
+        "real": {
+          "face_ssim": 0.9275,
+          "ciede_mean": 1.5344,
+          "ciede_std_of_means": 0.1854,
+          "ciede_p95": 2.9617,
+          "ciede_p99": 3.5228
+        }
+      }
+    },
+    "cand_D": {
+      "candidate_id": "cand_D",
+      "candidate_name": "Candidate D - Cosine schedule (50 steps)",
+      "steps": 50,
+      "schedule": "cosine",
+      "is_control": false,
+      "lfw": {
+        "formats": {
+          "png": {
+            "FaceNet": {
+              "flips_1pct_k": 49,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 34.27,
+              "flips_1pct_ci": [
+                26.99,
+                42.36
+              ],
+              "flips_01pct_k": 63,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 45.0,
+              "flips_01pct_ci": [
+                37.0,
+                53.26
+              ],
+              "mean_sim_drop": 0.3076
+            },
+            "ArcFace": {
+              "flips_1pct_k": 29,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 20.42,
+              "flips_1pct_ci": [
+                14.61,
+                27.79
+              ],
+              "flips_01pct_k": 37,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 26.06,
+              "flips_01pct_ci": [
+                19.54,
+                33.84
+              ],
+              "mean_sim_drop": 0.3661
+            },
+            "SFace": {
+              "flips_1pct_k": 34,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 24.11,
+              "flips_1pct_ci": [
+                17.8,
+                31.8
+              ],
+              "flips_01pct_k": 43,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 30.94,
+              "flips_01pct_ci": [
+                23.85,
+                39.05
+              ],
+              "mean_sim_drop": 0.2652
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 27,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 19.01,
+              "flips_1pct_ci": [
+                13.41,
+                26.25
+              ],
+              "flips_01pct_k": 36,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 25.53,
+              "flips_01pct_ci": [
+                19.05,
+                33.31
+              ],
+              "mean_sim_drop": 0.2688
+            }
+          },
+          "q75": {
+            "FaceNet": {
+              "flips_1pct_k": 42,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 29.37,
+              "flips_1pct_ci": [
+                22.52,
+                37.3
+              ],
+              "flips_01pct_k": 62,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 44.29,
+              "flips_01pct_ci": [
+                36.32,
+                52.56
+              ],
+              "mean_sim_drop": 0.2988
+            },
+            "ArcFace": {
+              "flips_1pct_k": 23,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 16.2,
+              "flips_1pct_ci": [
+                11.04,
+                23.13
+              ],
+              "flips_01pct_k": 32,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 22.54,
+              "flips_01pct_ci": [
+                16.44,
+                30.08
+              ],
+              "mean_sim_drop": 0.3437
+            },
+            "SFace": {
+              "flips_1pct_k": 29,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 20.57,
+              "flips_1pct_ci": [
+                14.72,
+                27.98
+              ],
+              "flips_01pct_k": 38,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 27.34,
+              "flips_01pct_ci": [
+                20.61,
+                35.28
+              ],
+              "mean_sim_drop": 0.2582
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 26,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 18.31,
+              "flips_1pct_ci": [
+                12.81,
+                25.48
+              ],
+              "flips_01pct_k": 31,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 21.99,
+              "flips_01pct_ci": [
+                15.94,
+                29.51
+              ],
+              "mean_sim_drop": 0.2601
+            }
+          },
+          "q50": {
+            "FaceNet": {
+              "flips_1pct_k": 40,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 27.97,
+              "flips_1pct_ci": [
+                21.27,
+                35.83
+              ],
+              "flips_01pct_k": 63,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 45.0,
+              "flips_01pct_ci": [
+                37.0,
+                53.26
+              ],
+              "mean_sim_drop": 0.2858
+            },
+            "ArcFace": {
+              "flips_1pct_k": 15,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 10.56,
+              "flips_1pct_ci": [
+                6.51,
+                16.7
+              ],
+              "flips_01pct_k": 26,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 18.31,
+              "flips_01pct_ci": [
+                12.81,
+                25.48
+              ],
+              "mean_sim_drop": 0.3184
+            },
+            "SFace": {
+              "flips_1pct_k": 32,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 22.7,
+              "flips_1pct_ci": [
+                16.56,
+                30.28
+              ],
+              "flips_01pct_k": 38,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 27.34,
+              "flips_01pct_ci": [
+                20.61,
+                35.28
+              ],
+              "mean_sim_drop": 0.2532
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 21,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 14.79,
+              "flips_1pct_ci": [
+                9.88,
+                21.55
+              ],
+              "flips_01pct_k": 31,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 21.99,
+              "flips_01pct_ci": [
+                15.94,
+                29.51
+              ],
+              "mean_sim_drop": 0.2493
+            }
+          }
+        }
+      },
+      "real": {
+        "formats": {
+          "png": {
+            "FaceNet": {
+              "flips_1pct_k": 10,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 38.46,
+              "flips_1pct_ci": [
+                22.43,
+                57.47
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.3598
+            },
+            "ArcFace": {
+              "flips_1pct_k": 9,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 34.62,
+              "flips_1pct_ci": [
+                19.41,
+                53.78
+              ],
+              "flips_01pct_k": 14,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 53.85,
+              "flips_01pct_ci": [
+                35.46,
+                71.24
+              ],
+              "mean_sim_drop": 0.436
+            },
+            "SFace": {
+              "flips_1pct_k": 6,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 23.08,
+              "flips_1pct_ci": [
+                11.03,
+                42.05
+              ],
+              "flips_01pct_k": 13,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 50.0,
+              "flips_01pct_ci": [
+                32.06,
+                67.94
+              ],
+              "mean_sim_drop": 0.2671
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 4,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 15.38,
+              "flips_1pct_ci": [
+                6.15,
+                33.53
+              ],
+              "flips_01pct_k": 11,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 42.31,
+              "flips_01pct_ci": [
+                25.54,
+                61.05
+              ],
+              "mean_sim_drop": 0.2682
+            }
+          },
+          "q75": {
+            "FaceNet": {
+              "flips_1pct_k": 10,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 38.46,
+              "flips_1pct_ci": [
+                22.43,
+                57.47
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.3417
+            },
+            "ArcFace": {
+              "flips_1pct_k": 6,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 23.08,
+              "flips_1pct_ci": [
+                11.03,
+                42.05
+              ],
+              "flips_01pct_k": 11,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 42.31,
+              "flips_01pct_ci": [
+                25.54,
+                61.05
+              ],
+              "mean_sim_drop": 0.4023
+            },
+            "SFace": {
+              "flips_1pct_k": 6,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 23.08,
+              "flips_1pct_ci": [
+                11.03,
+                42.05
+              ],
+              "flips_01pct_k": 13,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 50.0,
+              "flips_01pct_ci": [
+                32.06,
+                67.94
+              ],
+              "mean_sim_drop": 0.2626
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 2,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 7.69,
+              "flips_1pct_ci": [
+                2.14,
+                24.14
+              ],
+              "flips_01pct_k": 7,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 26.92,
+              "flips_01pct_ci": [
+                13.7,
+                46.08
+              ],
+              "mean_sim_drop": 0.2555
+            }
+          },
+          "q50": {
+            "FaceNet": {
+              "flips_1pct_k": 10,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 38.46,
+              "flips_1pct_ci": [
+                22.43,
+                57.47
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.3362
+            },
+            "ArcFace": {
+              "flips_1pct_k": 7,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 26.92,
+              "flips_1pct_ci": [
+                13.7,
+                46.08
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.388
+            },
+            "SFace": {
+              "flips_1pct_k": 7,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 26.92,
+              "flips_1pct_ci": [
+                13.7,
+                46.08
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.2574
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 3,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 11.54,
+              "flips_1pct_ci": [
+                4.0,
+                28.98
+              ],
+              "flips_01pct_k": 9,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 34.62,
+              "flips_01pct_ci": [
+                19.41,
+                53.78
+              ],
+              "mean_sim_drop": 0.2548
+            }
+          }
+        }
+      },
+      "visibility": {
+        "lfw": {
+          "face_ssim": 0.9489,
+          "ciede_mean": 1.3623,
+          "ciede_std_of_means": 0.0851,
+          "ciede_p95": 2.8758,
+          "ciede_p99": 3.6759,
+          "mean_latency_sec": 4.075
+        },
+        "real": {
+          "face_ssim": 0.93,
+          "ciede_mean": 1.4928,
+          "ciede_std_of_means": 0.168,
+          "ciede_p95": 2.9335,
+          "ciede_p99": 3.4751
+        }
+      }
+    },
+    "cand_E": {
+      "candidate_id": "cand_E",
+      "candidate_name": "Candidate E - Cosine schedule (75 steps)",
+      "steps": 75,
+      "schedule": "cosine",
+      "is_control": false,
+      "lfw": {
+        "formats": {
+          "png": {
+            "FaceNet": {
+              "flips_1pct_k": 46,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 32.17,
+              "flips_1pct_ci": [
+                25.06,
+                40.2
+              ],
+              "flips_01pct_k": 68,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 48.57,
+              "flips_01pct_ci": [
+                40.44,
+                56.78
+              ],
+              "mean_sim_drop": 0.3082
+            },
+            "ArcFace": {
+              "flips_1pct_k": 29,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 20.42,
+              "flips_1pct_ci": [
+                14.61,
+                27.79
+              ],
+              "flips_01pct_k": 36,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 25.35,
+              "flips_01pct_ci": [
+                18.91,
+                33.09
+              ],
+              "mean_sim_drop": 0.3613
+            },
+            "SFace": {
+              "flips_1pct_k": 34,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 24.11,
+              "flips_1pct_ci": [
+                17.8,
+                31.8
+              ],
+              "flips_01pct_k": 45,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 32.37,
+              "flips_01pct_ci": [
+                25.16,
+                40.54
+              ],
+              "mean_sim_drop": 0.2678
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 27,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 19.01,
+              "flips_1pct_ci": [
+                13.41,
+                26.25
+              ],
+              "flips_01pct_k": 36,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 25.53,
+              "flips_01pct_ci": [
+                19.05,
+                33.31
+              ],
+              "mean_sim_drop": 0.2694
+            }
+          },
+          "q75": {
+            "FaceNet": {
+              "flips_1pct_k": 43,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 30.07,
+              "flips_1pct_ci": [
+                23.16,
+                38.03
+              ],
+              "flips_01pct_k": 62,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 44.29,
+              "flips_01pct_ci": [
+                36.32,
+                52.56
+              ],
+              "mean_sim_drop": 0.2995
+            },
+            "ArcFace": {
+              "flips_1pct_k": 20,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 14.08,
+              "flips_1pct_ci": [
+                9.31,
+                20.75
+              ],
+              "flips_01pct_k": 30,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 21.13,
+              "flips_01pct_ci": [
+                15.22,
+                28.56
+              ],
+              "mean_sim_drop": 0.3353
+            },
+            "SFace": {
+              "flips_1pct_k": 35,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 24.82,
+              "flips_1pct_ci": [
+                18.42,
+                32.56
+              ],
+              "flips_01pct_k": 36,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 25.9,
+              "flips_01pct_ci": [
+                19.33,
+                33.76
+              ],
+              "mean_sim_drop": 0.2616
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 25,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 17.61,
+              "flips_1pct_ci": [
+                12.22,
+                24.7
+              ],
+              "flips_01pct_k": 31,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 21.99,
+              "flips_01pct_ci": [
+                15.94,
+                29.51
+              ],
+              "mean_sim_drop": 0.2611
+            }
+          },
+          "q50": {
+            "FaceNet": {
+              "flips_1pct_k": 41,
+              "flips_1pct_n": 143,
+              "flips_1pct_pct": 28.67,
+              "flips_1pct_ci": [
+                21.89,
+                36.56
+              ],
+              "flips_01pct_k": 58,
+              "flips_01pct_n": 140,
+              "flips_01pct_pct": 41.43,
+              "flips_01pct_ci": [
+                33.6,
+                49.71
+              ],
+              "mean_sim_drop": 0.2841
+            },
+            "ArcFace": {
+              "flips_1pct_k": 16,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 11.27,
+              "flips_1pct_ci": [
+                7.06,
+                17.52
+              ],
+              "flips_01pct_k": 20,
+              "flips_01pct_n": 142,
+              "flips_01pct_pct": 14.08,
+              "flips_01pct_ci": [
+                9.31,
+                20.75
+              ],
+              "mean_sim_drop": 0.3102
+            },
+            "SFace": {
+              "flips_1pct_k": 30,
+              "flips_1pct_n": 141,
+              "flips_1pct_pct": 21.28,
+              "flips_1pct_ci": [
+                15.33,
+                28.75
+              ],
+              "flips_01pct_k": 39,
+              "flips_01pct_n": 139,
+              "flips_01pct_pct": 28.06,
+              "flips_01pct_ci": [
+                21.26,
+                36.04
+              ],
+              "mean_sim_drop": 0.2549
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 22,
+              "flips_1pct_n": 142,
+              "flips_1pct_pct": 15.49,
+              "flips_1pct_ci": [
+                10.46,
+                22.34
+              ],
+              "flips_01pct_k": 31,
+              "flips_01pct_n": 141,
+              "flips_01pct_pct": 21.99,
+              "flips_01pct_ci": [
+                15.94,
+                29.51
+              ],
+              "mean_sim_drop": 0.2514
+            }
+          }
+        }
+      },
+      "real": {
+        "formats": {
+          "png": {
+            "FaceNet": {
+              "flips_1pct_k": 10,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 38.46,
+              "flips_1pct_ci": [
+                22.43,
+                57.47
+              ],
+              "flips_01pct_k": 11,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 42.31,
+              "flips_01pct_ci": [
+                25.54,
+                61.05
+              ],
+              "mean_sim_drop": 0.4016
+            },
+            "ArcFace": {
+              "flips_1pct_k": 8,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 30.77,
+              "flips_1pct_ci": [
+                16.5,
+                49.99
+              ],
+              "flips_01pct_k": 11,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 42.31,
+              "flips_01pct_ci": [
+                25.54,
+                61.05
+              ],
+              "mean_sim_drop": 0.3949
+            },
+            "SFace": {
+              "flips_1pct_k": 6,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 23.08,
+              "flips_1pct_ci": [
+                11.03,
+                42.05
+              ],
+              "flips_01pct_k": 13,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 50.0,
+              "flips_01pct_ci": [
+                32.06,
+                67.94
+              ],
+              "mean_sim_drop": 0.2613
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 5,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 19.23,
+              "flips_1pct_ci": [
+                8.51,
+                37.88
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.26
+            }
+          },
+          "q75": {
+            "FaceNet": {
+              "flips_1pct_k": 10,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 38.46,
+              "flips_1pct_ci": [
+                22.43,
+                57.47
+              ],
+              "flips_01pct_k": 12,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 46.15,
+              "flips_01pct_ci": [
+                28.76,
+                64.54
+              ],
+              "mean_sim_drop": 0.403
+            },
+            "ArcFace": {
+              "flips_1pct_k": 8,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 30.77,
+              "flips_1pct_ci": [
+                16.5,
+                49.99
+              ],
+              "flips_01pct_k": 11,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 42.31,
+              "flips_01pct_ci": [
+                25.54,
+                61.05
+              ],
+              "mean_sim_drop": 0.3931
+            },
+            "SFace": {
+              "flips_1pct_k": 5,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 19.23,
+              "flips_1pct_ci": [
+                8.51,
+                37.88
+              ],
+              "flips_01pct_k": 12,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 46.15,
+              "flips_01pct_ci": [
+                28.76,
+                64.54
+              ],
+              "mean_sim_drop": 0.2541
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 4,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 15.38,
+              "flips_1pct_ci": [
+                6.15,
+                33.53
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.2583
+            }
+          },
+          "q50": {
+            "FaceNet": {
+              "flips_1pct_k": 9,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 34.62,
+              "flips_1pct_ci": [
+                19.41,
+                53.78
+              ],
+              "flips_01pct_k": 11,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 42.31,
+              "flips_01pct_ci": [
+                25.54,
+                61.05
+              ],
+              "mean_sim_drop": 0.3815
+            },
+            "ArcFace": {
+              "flips_1pct_k": 5,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 19.23,
+              "flips_1pct_ci": [
+                8.51,
+                37.88
+              ],
+              "flips_01pct_k": 7,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 26.92,
+              "flips_01pct_ci": [
+                13.7,
+                46.08
+              ],
+              "mean_sim_drop": 0.361
+            },
+            "SFace": {
+              "flips_1pct_k": 6,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 23.08,
+              "flips_1pct_ci": [
+                11.03,
+                42.05
+              ],
+              "flips_01pct_k": 12,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 46.15,
+              "flips_01pct_ci": [
+                28.76,
+                64.54
+              ],
+              "mean_sim_drop": 0.246
+            },
+            "MobileFaceNet": {
+              "flips_1pct_k": 3,
+              "flips_1pct_n": 26,
+              "flips_1pct_pct": 11.54,
+              "flips_1pct_ci": [
+                4.0,
+                28.98
+              ],
+              "flips_01pct_k": 10,
+              "flips_01pct_n": 26,
+              "flips_01pct_pct": 38.46,
+              "flips_01pct_ci": [
+                22.43,
+                57.47
+              ],
+              "mean_sim_drop": 0.2505
+            }
+          }
+        }
+      },
+      "visibility": {
+        "lfw": {
+          "face_ssim": 0.9481,
+          "ciede_mean": 1.3791,
+          "ciede_std_of_means": 0.0882,
+          "ciede_p95": 2.9026,
+          "ciede_p99": 3.7155,
+          "mean_latency_sec": 6.168
+        },
+        "real": {
+          "face_ssim": 0.9298,
+          "ciede_mean": 1.5054,
+          "ciede_std_of_means": 0.1739,
+          "ciede_p95": 2.9505,
+          "ciede_p99": 3.4957
+        }
+      }
+    }
+  }
+}
