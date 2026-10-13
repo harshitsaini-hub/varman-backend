@@ -1,0 +1,54 @@
+{
+  "sample_size": 1500,
+  "elapsed_sec": 174.27,
+  "thresholds_1pct": {
+    "FaceNet": 0.3754,
+    "ArcFace": 0.1476,
+    "SFace": 0.292,
+    "MobileFaceNet": 0.1688
+  },
+  "thresholds_01pct": {
+    "FaceNet": 0.4555,
+    "ArcFace": 0.1828,
+    "SFace": 0.3315,
+    "MobileFaceNet": 0.2065
+  },
+  "observed_far_1pct": {
+    "FaceNet": 0.01,
+    "ArcFace": 0.01,
+    "SFace": 0.01,
+    "MobileFaceNet": 0.01
+  },
+  "observed_far_01pct": {
+    "FaceNet": 0.0013,
+    "ArcFace": 0.0013,
+    "SFace": 0.0013,
+    "MobileFaceNet": 0.0013
+  },
+  "impostor_stats": {
+    "FaceNet": {
+      "mean": 0.0264,
+      "std": 0.1526,
+      "min": -0.4678,
+      "max": 0.5131
+    },
+    "ArcFace": {
+      "mean": 0.0039,
+      "std": 0.0579,
+      "min": -0.1589,
+      "max": 0.1909
+    },
+    "SFace": {
+      "mean": 0.083,
+      "std": 0.0912,
+      "min": -0.1684,
+      "max": 0.3418
+    },
+    "MobileFaceNet": {
+      "mean": 0.005,
+      "std": 0.0645,
+      "min": -0.1966,
+      "max": 0.2456
+    }
+  }
+}

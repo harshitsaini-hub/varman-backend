@@ -58,8 +58,7 @@ from benchmarks.evaluate_face_models import ModelSuite, cosine_similarity
 
 TESTPICS_DIR = Path(r"C:\Users\ASUS F17\OneDrive\Desktop\Testpics")
 LABELS_CSV_PATH = Path(r"C:\Users\ASUS F17\OneDrive\Desktop\real_photo_labels\photo_labels.csv")
-SCRATCH_DIR = Path(r"C:\Users\ASUS F17\.gemini\antigravity\brain\dc2089b6-ee90-4ab7-a13e-067a7c5f742f\scratch")
-CALIB_PATH = SCRATCH_DIR / "calibrated_thresholds_sweep.json"
+CALIB_PATH = REPO_ROOT / "benchmarks" / "results" / "sweep_evidence" / "calibrated_thresholds_sweep.json"
 RESULTS_DIR = REPO_ROOT / "benchmarks" / "results" / "pgd_convergence_q50_exp"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 TMP_DIR = RESULTS_DIR / "tmp_images"
