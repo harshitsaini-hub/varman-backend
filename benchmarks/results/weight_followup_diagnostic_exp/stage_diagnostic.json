@@ -1,0 +1,92 @@
+{
+  "unprotected": {
+    "ArcFace": {
+      "mean_similarity": 0.7038,
+      "std_similarity": 0.098,
+      "pairs_below_threshold": 0,
+      "total_pairs": 40,
+      "fraction_below_threshold": 0.0,
+      "threshold_1pct": 0.1476
+    },
+    "FaceNet": {
+      "mean_similarity": 0.7681,
+      "std_similarity": 0.1121,
+      "pairs_below_threshold": 0,
+      "total_pairs": 40,
+      "fraction_below_threshold": 0.0,
+      "threshold_1pct": 0.3754
+    }
+  },
+  "stage1_opt_crop": {
+    "ArcFace": {
+      "mean_similarity": -0.2078,
+      "std_similarity": 0.1219,
+      "pairs_below_threshold": 40,
+      "total_pairs": 40,
+      "fraction_below_threshold": 100.0,
+      "threshold_1pct": 0.1476
+    },
+    "FaceNet": {
+      "mean_similarity": 0.1241,
+      "std_similarity": 0.243,
+      "pairs_below_threshold": 35,
+      "total_pairs": 40,
+      "fraction_below_threshold": 87.5,
+      "threshold_1pct": 0.3754
+    }
+  },
+  "stage2_pasted_float": {
+    "ArcFace": {
+      "mean_similarity": -0.0288,
+      "std_similarity": 0.1518,
+      "pairs_below_threshold": 36,
+      "total_pairs": 40,
+      "fraction_below_threshold": 90.0,
+      "threshold_1pct": 0.1476
+    },
+    "FaceNet": {
+      "mean_similarity": 0.3005,
+      "std_similarity": 0.2493,
+      "pairs_below_threshold": 24,
+      "total_pairs": 40,
+      "fraction_below_threshold": 60.0,
+      "threshold_1pct": 0.3754
+    }
+  },
+  "stage3_png_reload": {
+    "ArcFace": {
+      "mean_similarity": 0.0505,
+      "std_similarity": 0.1606,
+      "pairs_below_threshold": 28,
+      "total_pairs": 40,
+      "fraction_below_threshold": 70.0,
+      "threshold_1pct": 0.1476
+    },
+    "FaceNet": {
+      "mean_similarity": 0.3741,
+      "std_similarity": 0.2379,
+      "pairs_below_threshold": 19,
+      "total_pairs": 40,
+      "fraction_below_threshold": 47.5,
+      "threshold_1pct": 0.3754
+    }
+  },
+  "stage4_jpeg_q50": {
+    "ArcFace": {
+      "mean_similarity": 0.147,
+      "std_similarity": 0.1698,
+      "pairs_below_threshold": 19,
+      "total_pairs": 40,
+      "fraction_below_threshold": 47.5,
+      "threshold_1pct": 0.1476
+    },
+    "FaceNet": {
+      "mean_similarity": 0.4116,
+      "std_similarity": 0.2272,
+      "pairs_below_threshold": 17,
+      "total_pairs": 40,
+      "fraction_below_threshold": 42.5,
+      "threshold_1pct": 0.3754
+    }
+  }
+}
