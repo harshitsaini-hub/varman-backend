@@ -44,6 +44,21 @@ class ProtectionEngine:
         },
     }
 
+    STRONG_PRESETS: Dict[str, Dict[str, Any]] = {
+        "F5": {
+            "eps": 8.0 / 255.0,
+            "mask_scale": 1.15,
+            "steps": 25,
+            "alpha": (8.0 / 255.0) / 7.0,
+            "mu": 0.9,
+            "w_fn": 1.0,
+            "luminance_only": True,
+            "chroma_scale": 0.0,
+            "enable_guardrail": False,
+            "feather_sigma": 4.0,
+        },
+    }
+
     def __init__(self, model_dir: Optional[str] = None):
         self.model_dir = model_dir or os.path.join(settings.base_dir, "models")
         self.yunet_path = os.path.join(self.model_dir, "face_detection_yunet_2023mar.onnx")

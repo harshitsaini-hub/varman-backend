@@ -113,6 +113,21 @@ class StrongProtectionEngine:
     GPU-accelerated Strong Mode engine using EOT-PGD against dual face surrogates.
     """
 
+    PRESETS: Dict[str, Dict[str, Any]] = {
+        "F5": {
+            "eps": 8.0 / 255.0,
+            "mask_scale": 1.15,
+            "steps": 25,
+            "alpha": (8.0 / 255.0) / 7.0,
+            "mu": 0.9,
+            "w_fn": 1.0,
+            "luminance_only": True,
+            "chroma_scale": 0.0,
+            "enable_guardrail": False,
+            "feather_sigma": 4.0,
+        },
+    }
+
     def __init__(self, device: Optional[torch.device] = None):
         if device is None:
             if not torch.cuda.is_available():
