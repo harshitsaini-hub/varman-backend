@@ -138,6 +138,6 @@ We evaluated whether increasing the PGD optimization horizon (from 25 to 50 or 7
 ## 6. Generated Visual Artifacts
 
 The following high-resolution diagnostic plots were generated and saved in the artifact directory:
-- [lfw_flip_rates_by_condition.png](file:///C:/Users/ASUS%20F17/.gemini/antigravity/brain/dc2089b6-ee90-4ab7-a13e-067a7c5f742f/lfw_flip_rates_by_condition.png): Compares PNG, Q75, and Q50 flip rates across all candidates.
-- [q50_model_breakdown.png](file:///C:/Users/ASUS%20F17/.gemini/antigravity/brain/dc2089b6-ee90-4ab7-a13e-067a7c5f742f/q50_model_breakdown.png): Per-model breakdown showing ArcFace vulnerability vs FaceNet/SFace resilience at Q50.
-- [q50_protection_vs_visibility.png](file:///C:/Users/ASUS%20F17/.gemini/antigravity/brain/dc2089b6-ee90-4ab7-a13e-067a7c5f742f/q50_protection_vs_visibility.png): Pareto trade-off curve between mean CIEDE2000 visibility and real JPEG Q50 flip rate.
+- [lfw_flip_rates_by_condition.png](lfw_flip_rates_by_condition.png): Compares PNG, Q75, and Q50 flip rates across all candidates.
+- [q50_model_breakdown.png](q50_model_breakdown.png): Per-model breakdown showing ArcFace vulnerability vs FaceNet/SFace resilience at Q50.
+- [q50_protection_vs_visibility.png](q50_protection_vs_visibility.png): Pareto trade-off curve between mean CIEDE2000 visibility and real JPEG Q50 flip rate.

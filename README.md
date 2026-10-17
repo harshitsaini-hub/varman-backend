@@ -129,11 +129,22 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 API Documentation will be available at `http://localhost:8000/docs`.
 
+> [!IMPORTANT]
+> **Deployment Note:**
+> - **Default API Engine:** The deployed FastAPI service (`/images/protect`) defaults to the fast CPU-based `"Balanced"` engine (`warp_scale=0.015`, `dct_strength=10.0`).
+> - **Strong GPU Mode & F5 Preset:** Strong mode and the recommended `"F5"` preset execute iterative EOT-PGD and require a CUDA-capable GPU (`torch.cuda.is_available()`) along with locally cached surrogate weights (`~/.cache/varman/arcface_r50_backbone.pth`).
+> - **API Boundary:** The `"F5"` preset is research-validated and evaluated via benchmark suites, but is **not** selectable through the `/images/protect` web endpoint.
+
+> [!NOTE]
+> **Security & Privacy Note:**
+> Contributors and operators must adhere to the repository security standards outlined in [`docs/SECURITY_AND_PRIVACY_RULES.md`](docs/SECURITY_AND_PRIVACY_RULES.md). Never commit passwords, database files, salts, or personal emails. Pre-push repository hygiene tests can be verified via `pytest tests/test_repo_hygiene.py`.
+
 ### Running Verification Tests
 All unit and regression tests should be executed with a hard timeout to prevent hanging:
 ```bash
 pytest --maxfail=1 --timeout=60 tests/
 ```
+
 
 ---
 

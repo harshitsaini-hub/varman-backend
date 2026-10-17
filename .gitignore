@@ -13,6 +13,12 @@ build/
 .pytest_cache/
 .ruff_cache/
 *.db
+*.sqlite
+*.sqlite3
+.env
+*.pem
+*.key
+secrets/
 # Ignore heavy AI models and checkpoints
 /models/
 *.safetensors

@@ -56,8 +56,8 @@ from app.protection.strong_engine import composite_crop_back, get_canonical_face
 from app.protection.surrogate_models import DualSurrogateSuite
 from benchmarks.evaluate_face_models import ModelSuite, cosine_similarity
 
-TESTPICS_DIR = Path(r"C:\Users\ASUS F17\OneDrive\Desktop\Testpics")
-LABELS_CSV_PATH = Path(r"C:\Users\ASUS F17\OneDrive\Desktop\real_photo_labels\photo_labels.csv")
+TESTPICS_DIR = Path(os.getenv("TESTPICS_DIR", "./data/testpics"))
+LABELS_CSV_PATH = Path(os.getenv("LABELS_CSV_PATH", "./data/photo_labels.csv"))
 CALIB_PATH = REPO_ROOT / "benchmarks" / "results" / "sweep_evidence" / "calibrated_thresholds_sweep.json"
 RESULTS_DIR = REPO_ROOT / "benchmarks" / "results" / "pgd_convergence_q50_exp"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
