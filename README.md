@@ -24,10 +24,10 @@ Varman is a research-grade adversarial protection engine designed to safeguard p
 ## 1. Scope: Capabilities and Non-Goals
 
 ### What Varman Does
-- **EOT-PGD Optimization:** Perturbs facial feature representations in the latent space of deep convolutional recognition backbones (FaceNet, ArcFace/Glint360k) using differentiable color, scale, and affine transformations.
+- **EOT-PGD Optimization:** Perturbs facial feature representations in the latent space of deep convolutional recognition backbones (FaceNet, ArcFace) using differentiable color, scale, and affine transformations.
 - **Robustness to Compression:** Employs differentiable DCT-based JPEG approximations during optimization so perturbations survive real-world JPEG recompression across quality factors Q50 to Q95.
 - **Paste-Aware Bounding:** Calculates gradient projections directly on the aligned $112 \times 112$ crop and smoothly composites the adversarial face back into the source canvas using an elliptical alpha mask.
-- **Empirical Protection:** Prevents 1:1 facial verification across standard verification thresholds calibrated at 1% False Accept Rate (FAR), achieving roughly 40% to 56% protection against commercial-grade deep models under JPEG compression.
+- **Empirical Protection:** Prevents 1:1 facial verification across standard verification thresholds calibrated at 1% False Accept Rate (FAR), achieving verified protection per configuration under real JPEG compression (Q50–Q90): **F0** achieves ~36.4% to 42.0% 4-model mean (30.4% to 32.9% held-out mean); **F5** achieves ~45.7% to 48.5% 4-model mean (37.5% to 40.3% held-out mean); **F1** achieves ~50.0% to 55.6% 4-model mean (42.1% to 45.2% held-out mean) [M].
 
 ### What Varman Does NOT Do
 - **Not Inconspicuous to Humans:** Varman does **not** make faces invisible or imperceptible to human observers. Adversarial grain is perceptible upon scrutiny (mean ratings 1.30 to 2.00 on a 0–2 scale across tested settings).
@@ -41,9 +41,9 @@ Varman is a research-grade adversarial protection engine designed to safeguard p
 
 | Generation | Era | Optimization Pipeline | Target Models | Protection Rate (1% FAR, JPEG) | Root Outcome / Status |
 |---|---|---|---|---|---|
-| **AMOR 1.0** | May–Jun 2026 | Full-canvas PGD ($512 \times 512$), Caffe detector | PyTorch FaceNet (Inception) | **0.00% [M]** | **Complete Failure:** Full-canvas noise was discarded by downstream face alignment and cropping. |
-| **Varman 2.0** | Jun–Oct 2026 | CPU heuristic noise, frequency DCT, SSIM guards | PyTorch FaceNet | **0.00% [M]** | **Complete Failure:** Heuristic noise was filtered out by deep embedding layers. Zero evasion. |
-| **Varman 3.0** (`adaptive-strength`) | Oct 2026 | Aligned EOT-PGD ($112 \times 112$), differentiable JPEG, mask composite | FaceNet, ArcFace, SFace, MobileFaceNet | **40% – 56% [M]** | **Empirical Breakthrough:** First verified evasion under JPEG compression. Closed as reference. |
+| **AMOR 1.0** | May–Jun 2026 | Full-canvas PGD ($512 \times 512$), Caffe detector | PyTorch FaceNet (Inception) | **0.00% [H]** | Recorded in handover notes (original test script not preserved, see GAP-01) as complete evasion failure. |
+| **Varman 2.0** | Jun–Oct 2026 | CPU heuristic noise, frequency DCT, SSIM guards | PyTorch FaceNet | **~0.0% [H]** | Recorded in handover notes (original test script not preserved, see GAP-01) as zero evasion across models. |
+| **Varman 3.0** (`adaptive-strength`) | Oct 2026 | Aligned EOT-PGD ($112 \times 112$), differentiable JPEG, mask composite | FaceNet, ArcFace, SFace, MobileFaceNet | **F0: 36–42%<br>F5: 46–49%<br>F1: 50–56% [M]** | **Empirical Breakthrough:** First verified evasion under JPEG compression. Closed as reference. |
 
 ---
 
@@ -58,7 +58,7 @@ Thresholds are strictly calibrated to enforce a **1.00% False Accept Rate (FAR)*
 | Model | Architecture | Backbone / Pre-Training | Input Shape | 1% FAR Threshold ($\tau$) | Role in Evaluation |
 |---|---|---|---|---|---|
 | **FaceNet** | Inception-ResNet-v1 | CASIA-WebFace | $112 \times 112 \times 3$ | **0.3754 [M]** | Optimization Surrogate & Evaluation |
-| **ArcFace** | ResNet-50 (`w600k_r50`) | Glint360k | $112 \times 112 \times 3$ | **0.1476 [M]** | Optimization Surrogate & Evaluation |
+| **ArcFace** | ResNet-50 (`w600k_r50`) | InsightFace release | $112 \times 112 \times 3$ | **0.1476 [M]** | Optimization Surrogate & Evaluation |
 | **SFace** | SFace / OpenCV Zoo | CASIA-WebFace subset | $112 \times 112 \times 3$ | **0.2920 [M]** | **Held-Out Model** (Never seen during PGD) |
 | **MobileFaceNet** | MobileFaceNet (Lightweight) | CASIA-WebFace | $112 \times 112 \times 3$ | **0.1688 [M]** | **Held-Out Model** (Never seen during PGD) |
 
@@ -72,10 +72,10 @@ Summary of multi-quality protection rates (150 LFW pairs) and human conspicuity 
 |---|---|---|---|---|---|---|---|
 | **F0 (Conservative)** | $8/255$ | 1.00 | Q90: 42.03%<br>Q50: 36.39% | Q90: 32.87%<br>Q50: 30.39% | **1.30 / 2.00 [M]**<br>(7 Slight, 3 Clear) | 0.90149 (Q50)<br>0.91583 (Q90) | Lower artifact profile, modest protection. |
 | **F5 (Balanced)** | $8/255$ | 1.15 | **Q90: 47.84%**<br>**Q50: 45.73%** | **Q90: 39.58%**<br>**Q50: 39.23%** | **1.50 / 2.00 [M]**<br>(5 Slight, 5 Clear) | 0.88381 (Q50)<br>0.89538 (Q90) | **Authoritative Recommended Preset.** |
-| **F1 (Aggressive)** | $8/255$ | 1.30 | Q90: 55.59%<br>Q50: 49.95% | Q90: 45.24%<br>Q50: 42.42% | **2.00 / 2.00 [M]**<br>(0 Slight, 10 Clear) | 0.88027 (Q50)<br>0.89410 (Q90) | Ceiling protection; obvious grain halos. |
-| **Unprotected Control** | 0 | 0.00 | Q90: 0.35%<br>Q50: 0.35% | Q90: 0.35%<br>Q50: 0.35% | **0.00 / 2.00 [M]**<br>(10 None, 0 Clear) | 0.97089 (Q50)<br>0.98540 (Q90) | Baseline control. |
+| **F1 (Aggressive)** | $8/255$ | 1.30 | Q90: 55.59%<br>Q50: 49.95% | Q90: 45.24%<br>Q50: 42.42% | **2.00 / 2.00 [M]**<br>(0 Slight, 10 Clear) | 0.88027 (Q50) | Ceiling protection; obvious grain halos. |
+| **Unprotected Control** | 0 | 0.00 | Q90: 0.35%<br>Q50: 0.35% | Q90: 0.35%<br>Q50: 0.35% | **0.00 / 2.00 [M]**<br>(10 None, 0 Clear) | 0.97089 (Q50) | Baseline control. |
 
-*Note: Differences of 1–2 percentage points across adjacent JPEG qualities (e.g. Q75 vs Q70) fall within empirical sampling noise (~0.7 percentage points per pair per model).*
+*Note: Differences of 1–2 percentage points across adjacent JPEG qualities (e.g. Q75 vs Q70) fall within empirical sampling noise (~0.7 percentage points per pair per model). Face SSIM (Definition B) is evaluated strictly within the fixed canonical face mask ($\ge 0.10$) on the aligned 112 crop, compared against the uncompressed source.*
 
 ---
 
@@ -140,16 +140,17 @@ pytest --maxfail=1 --timeout=60 tests/
 ## 7. Known Limitations & Research Boundary
 
 1. **Human Evaluation Sample Size:** Visual conspicuity ratings are based on 10 standardized source-image groups evaluated by a single expert evaluator under consistent display conditions.
-2. **SSIM Decoupling:** Structural Similarity (SSIM Definition B: bounding-box crop) does not strictly track human visibility rankings. For example, F0 exhibits higher SSIM than F5 (0.901 vs 0.884), yet both can exhibit clearly perceptible patterns depending on individual skin texture.
+2. **SSIM Decoupling:** Structural Similarity (SSIM Definition B: fixed canonical face mask $\ge 0.10$ on the aligned 112 crop, compared against the uncompressed source) does not strictly track human visibility rankings. For example, F0 exhibits higher SSIM than F5 (0.901 vs 0.884), yet both can exhibit clearly perceptible patterns depending on individual skin texture.
 3. **Smooth-Skin Hypothesis:** Qualitative inspection indicates that subjects with smooth, untextured skin reveal high-frequency adversarial noise more prominently than subjects with textured skin, facial hair, or complex backgrounds. This remains an unvalidated observational hypothesis.
 4. **Compression Scope:** Validation was conducted exclusively under standard baseline JPEG compression (Q50–Q95). Behavioral characteristics under modern codecs (AVIF, WebP) or video compression (H.264/HEVC) have not been evaluated.
+5. **Training Lineage of Evaluated Models:** `w600k_r50` (ArcFace) and `w600k_mbf` (MobileFaceNet) appear to share an upstream training lineage within the InsightFace release family [H]. Held-out denotes that the model was unseen during PGD and has a different architecture, not that it was trained on independent data.
 
 ---
 
 ## 8. Historical Documentation
 
 For exhaustive technical background, failure analyses, mathematical formulations, and reproduction logs, consult the companion research monograph:
-- **Full History Document (125 Pages):** [`Varman_Research_History.pdf`](../Varman-research/reports/history_doc/Varman_Research_History.pdf)
+- **Full History Document (125 Pages):** [`Varman_Research_History.pdf`](docs/Varman_Research_History.pdf)
 - **Markdown Source:** [`Varman_Research_History.md`](../Varman-research/reports/history_doc/Varman_Research_History.md)
 - **Untraceable Gaps Register:** [`GAPS.md`](../Varman-research/reports/history_doc/GAPS.md)
 - **Source Audit:** [`SOURCE_INVENTORY.md`](../Varman-research/reports/history_doc/SOURCE_INVENTORY.md)
