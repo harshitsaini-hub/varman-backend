@@ -2,7 +2,6 @@
 Unit tests for Varman benchmark statistical helpers, threshold validation, and pair accounting.
 """
 
-import json
 import tempfile
 from pathlib import Path
 import numpy as np

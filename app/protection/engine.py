@@ -2,9 +2,6 @@ import os
 import cv2
 import logging
 from typing import Dict, Any, Tuple, Union
-from PIL import Image
-
-from app.config import settings
 from app.protection.protection_engine import ProtectionEngine
 from app.protection.evaluation_engine import EvaluationEngine
 

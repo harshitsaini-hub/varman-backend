@@ -1,0 +1,37 @@
+candidate_id,candidate_name,loss_mode,steps,format,model,role,flips_1pct_k,flips_1pct_n,flips_1pct_pct,flips_1pct_ci_low,flips_1pct_ci_high,flips_01pct_k,flips_01pct_n,flips_01pct_pct,flips_01pct_ci_low,flips_01pct_ci_high,mean_sim_drop,face_ssim,ciede_mean,ciede_p95,ciede_p99,latency_sec
+control,Unprotected Control,none,0,png,FaceNet,Surrogate,0,143,0.0,0.0,2.62,0,140,0.0,0.0,2.67,0.0,1.0,0.0,0.0,0.0,0.0
+control,Unprotected Control,none,0,png,ArcFace,Surrogate,0,142,0.0,0.0,2.63,0,142,0.0,0.0,2.63,0.0,1.0,0.0,0.0,0.0,0.0
+control,Unprotected Control,none,0,png,SFace,Held-Out,0,141,0.0,0.0,2.65,0,139,0.0,0.0,2.69,0.0,1.0,0.0,0.0,0.0,0.0
+control,Unprotected Control,none,0,png,MobileFaceNet,Held-Out,0,142,0.0,0.0,2.63,0,141,0.0,0.0,2.65,0.0,1.0,0.0,0.0,0.0,0.0
+control,Unprotected Control,none,0,q75,FaceNet,Surrogate,1,143,0.7,0.12,3.85,0,140,0.0,0.0,2.67,0.0009,1.0,0.0,0.0,0.0,0.0
+control,Unprotected Control,none,0,q75,ArcFace,Surrogate,0,142,0.0,0.0,2.63,0,142,0.0,0.0,2.63,0.0031,1.0,0.0,0.0,0.0,0.0
+control,Unprotected Control,none,0,q75,SFace,Held-Out,1,141,0.71,0.13,3.91,0,139,0.0,0.0,2.69,0.0019,1.0,0.0,0.0,0.0,0.0
+control,Unprotected Control,none,0,q75,MobileFaceNet,Held-Out,0,142,0.0,0.0,2.63,0,141,0.0,0.0,2.65,0.0026,1.0,0.0,0.0,0.0,0.0
+control,Unprotected Control,none,0,q50,FaceNet,Surrogate,1,143,0.7,0.12,3.85,0,140,0.0,0.0,2.67,0.0048,1.0,0.0,0.0,0.0,0.0
+control,Unprotected Control,none,0,q50,ArcFace,Surrogate,0,142,0.0,0.0,2.63,0,142,0.0,0.0,2.63,0.0093,1.0,0.0,0.0,0.0,0.0
+control,Unprotected Control,none,0,q50,SFace,Held-Out,0,141,0.0,0.0,2.65,0,139,0.0,0.0,2.69,0.0078,1.0,0.0,0.0,0.0,0.0
+control,Unprotected Control,none,0,q50,MobileFaceNet,Held-Out,0,142,0.0,0.0,2.63,0,141,0.0,0.0,2.65,0.0103,1.0,0.0,0.0,0.0,0.0
+cand_A_rerun,Candidate A Rerun (Baseline Cosine Loss),cosine,25,png,FaceNet,Surrogate,42,143,29.37,22.52,37.3,61,140,43.57,35.64,51.85,0.2894,0.9491,1.3516,2.8473,3.6275,1.996
+cand_A_rerun,Candidate A Rerun (Baseline Cosine Loss),cosine,25,png,ArcFace,Surrogate,27,142,19.01,13.41,26.25,37,142,26.06,19.54,33.84,0.3636,0.9491,1.3516,2.8473,3.6275,1.996
+cand_A_rerun,Candidate A Rerun (Baseline Cosine Loss),cosine,25,png,SFace,Held-Out,33,141,23.4,17.18,31.04,39,139,28.06,21.26,36.04,0.2558,0.9491,1.3516,2.8473,3.6275,1.996
+cand_A_rerun,Candidate A Rerun (Baseline Cosine Loss),cosine,25,png,MobileFaceNet,Held-Out,27,142,19.01,13.41,26.25,35,141,24.82,18.42,32.56,0.2604,0.9491,1.3516,2.8473,3.6275,1.996
+cand_A_rerun,Candidate A Rerun (Baseline Cosine Loss),cosine,25,q75,FaceNet,Surrogate,36,143,25.17,18.77,32.87,56,140,40.0,32.26,48.28,0.2802,0.9491,1.3516,2.8473,3.6275,1.996
+cand_A_rerun,Candidate A Rerun (Baseline Cosine Loss),cosine,25,q75,ArcFace,Surrogate,24,142,16.9,11.63,23.92,33,142,23.24,17.05,30.84,0.3451,0.9491,1.3516,2.8473,3.6275,1.996
+cand_A_rerun,Candidate A Rerun (Baseline Cosine Loss),cosine,25,q75,SFace,Held-Out,29,141,20.57,14.72,27.98,37,139,26.62,19.97,34.52,0.2493,0.9491,1.3516,2.8473,3.6275,1.996
+cand_A_rerun,Candidate A Rerun (Baseline Cosine Loss),cosine,25,q75,MobileFaceNet,Held-Out,26,142,18.31,12.81,25.48,31,141,21.99,15.94,29.51,0.2538,0.9491,1.3516,2.8473,3.6275,1.996
+cand_A_rerun,Candidate A Rerun (Baseline Cosine Loss),cosine,25,q50,FaceNet,Surrogate,35,143,24.48,18.16,32.13,60,140,42.86,34.96,51.14,0.274,0.9491,1.3516,2.8473,3.6275,1.996
+cand_A_rerun,Candidate A Rerun (Baseline Cosine Loss),cosine,25,q50,ArcFace,Surrogate,15,142,10.56,6.51,16.7,24,142,16.9,11.63,23.92,0.3213,0.9491,1.3516,2.8473,3.6275,1.996
+cand_A_rerun,Candidate A Rerun (Baseline Cosine Loss),cosine,25,q50,SFace,Held-Out,29,141,20.57,14.72,27.98,38,139,27.34,20.61,35.28,0.2459,0.9491,1.3516,2.8473,3.6275,1.996
+cand_A_rerun,Candidate A Rerun (Baseline Cosine Loss),cosine,25,q50,MobileFaceNet,Held-Out,23,142,16.2,11.04,23.13,29,141,20.57,14.72,27.98,0.2448,0.9491,1.3516,2.8473,3.6275,1.996
+cand_F_hinge,Candidate F (Threshold-Aimed Hinge Loss),hinge,25,png,FaceNet,Surrogate,45,143,31.47,24.43,39.48,67,140,47.86,39.75,56.08,0.3035,0.9436,1.4268,2.8969,3.6701,2.091
+cand_F_hinge,Candidate F (Threshold-Aimed Hinge Loss),hinge,25,png,ArcFace,Surrogate,14,142,9.86,5.96,15.87,23,142,16.2,11.04,23.13,0.3181,0.9436,1.4268,2.8969,3.6701,2.091
+cand_F_hinge,Candidate F (Threshold-Aimed Hinge Loss),hinge,25,png,SFace,Held-Out,21,141,14.89,9.95,21.7,28,139,20.14,14.32,27.57,0.2297,0.9436,1.4268,2.8969,3.6701,2.091
+cand_F_hinge,Candidate F (Threshold-Aimed Hinge Loss),hinge,25,png,MobileFaceNet,Held-Out,22,142,15.49,10.46,22.34,26,141,18.44,12.91,25.65,0.2349,0.9436,1.4268,2.8969,3.6701,2.091
+cand_F_hinge,Candidate F (Threshold-Aimed Hinge Loss),hinge,25,q75,FaceNet,Surrogate,45,143,31.47,24.43,39.48,65,140,46.43,38.37,54.67,0.2997,0.9436,1.4268,2.8969,3.6701,2.091
+cand_F_hinge,Candidate F (Threshold-Aimed Hinge Loss),hinge,25,q75,ArcFace,Surrogate,13,142,9.15,5.43,15.03,21,142,14.79,9.88,21.55,0.307,0.9436,1.4268,2.8969,3.6701,2.091
+cand_F_hinge,Candidate F (Threshold-Aimed Hinge Loss),hinge,25,q75,SFace,Held-Out,22,141,15.6,10.54,22.49,31,139,22.3,16.18,29.91,0.2276,0.9436,1.4268,2.8969,3.6701,2.091
+cand_F_hinge,Candidate F (Threshold-Aimed Hinge Loss),hinge,25,q75,MobileFaceNet,Held-Out,20,142,14.08,9.31,20.75,27,141,19.15,13.51,26.43,0.2308,0.9436,1.4268,2.8969,3.6701,2.091
+cand_F_hinge,Candidate F (Threshold-Aimed Hinge Loss),hinge,25,q50,FaceNet,Surrogate,46,143,32.17,25.06,40.2,67,140,47.86,39.75,56.08,0.2942,0.9436,1.4268,2.8969,3.6701,2.091
+cand_F_hinge,Candidate F (Threshold-Aimed Hinge Loss),hinge,25,q50,ArcFace,Surrogate,11,142,7.75,4.38,13.34,16,142,11.27,7.06,17.52,0.2962,0.9436,1.4268,2.8969,3.6701,2.091
+cand_F_hinge,Candidate F (Threshold-Aimed Hinge Loss),hinge,25,q50,SFace,Held-Out,24,141,17.02,11.71,24.08,31,139,22.3,16.18,29.91,0.2262,0.9436,1.4268,2.8969,3.6701,2.091
+cand_F_hinge,Candidate F (Threshold-Aimed Hinge Loss),hinge,25,q50,MobileFaceNet,Held-Out,20,142,14.08,9.31,20.75,27,141,19.15,13.51,26.43,0.2306,0.9436,1.4268,2.8969,3.6701,2.091

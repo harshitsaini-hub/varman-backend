@@ -6,16 +6,21 @@ python-multipart==0.0.20
 # ── Database ───────────────────────────────────────────────────────────────
 sqlalchemy[asyncio]==2.0.36
 asyncpg==0.30.0
-aiosqlite==0.20.0
+aiosqlite>=0.20.0
 aiomysql>=0.2.0
 asyncmy>=0.2.9
 pymysql>=1.1.0
 
-# ── ML / Lightweight Engine ────────────────────────────────────────────────
+# ── ML / Protection Engine & Benchmarking ───────────────────────────────────
 onnxruntime>=1.18.0
+torch>=2.2.0
+torchvision>=0.17.0
+facenet-pytorch>=2.6.0
+scikit-learn>=1.4.0
+scikit-image>=0.22.0
 
 # ── Quality Metrics & Image Processing ──────────────────────────────────────
-opencv-python-headless>=4.8.0
+opencv-python>=4.8.0
 Pillow>=10.0.0
 
 # ── Auth ───────────────────────────────────────────────────────────────────

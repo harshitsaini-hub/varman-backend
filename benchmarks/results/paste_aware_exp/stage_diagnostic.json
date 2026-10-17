@@ -1,0 +1,181 @@
+{
+  "metadata": {
+    "subset_pairs": 40,
+    "threshold_1pct_arcface": 0.1476,
+    "threshold_1pct_facenet": 0.3754
+  },
+  "candidates": {
+    "crop_only_w100": {
+      "unprotected": {
+        "ArcFace": {
+          "mean_similarity": 0.7038,
+          "pairs_below_threshold": 0,
+          "total_pairs": 40,
+          "fraction_below_threshold": 0.0
+        },
+        "FaceNet": {
+          "mean_similarity": 0.7681,
+          "pairs_below_threshold": 0,
+          "total_pairs": 40,
+          "fraction_below_threshold": 0.0
+        }
+      },
+      "stage1_opt_crop": {
+        "ArcFace": {
+          "mean_similarity": -0.149,
+          "pairs_below_threshold": 39,
+          "total_pairs": 40,
+          "fraction_below_threshold": 97.5
+        },
+        "FaceNet": {
+          "mean_similarity": -0.0211,
+          "pairs_below_threshold": 39,
+          "total_pairs": 40,
+          "fraction_below_threshold": 97.5
+        }
+      },
+      "stage2_pasted_float": {
+        "ArcFace": {
+          "mean_similarity": 0.0294,
+          "pairs_below_threshold": 31,
+          "total_pairs": 40,
+          "fraction_below_threshold": 77.5
+        },
+        "FaceNet": {
+          "mean_similarity": 0.1827,
+          "pairs_below_threshold": 31,
+          "total_pairs": 40,
+          "fraction_below_threshold": 77.5
+        }
+      },
+      "stage3a_8bit_round": {
+        "ArcFace": {
+          "mean_similarity": 0.0304,
+          "pairs_below_threshold": 31,
+          "total_pairs": 40,
+          "fraction_below_threshold": 77.5
+        },
+        "FaceNet": {
+          "mean_similarity": 0.1833,
+          "pairs_below_threshold": 31,
+          "total_pairs": 40,
+          "fraction_below_threshold": 77.5
+        }
+      },
+      "stage3b_png_reload": {
+        "ArcFace": {
+          "mean_similarity": 0.0989,
+          "pairs_below_threshold": 26,
+          "total_pairs": 40,
+          "fraction_below_threshold": 65.0
+        },
+        "FaceNet": {
+          "mean_similarity": 0.2828,
+          "pairs_below_threshold": 23,
+          "total_pairs": 40,
+          "fraction_below_threshold": 57.5
+        }
+      },
+      "stage4_jpeg_q50": {
+        "ArcFace": {
+          "mean_similarity": 0.1732,
+          "pairs_below_threshold": 14,
+          "total_pairs": 40,
+          "fraction_below_threshold": 35.0
+        },
+        "FaceNet": {
+          "mean_similarity": 0.2971,
+          "pairs_below_threshold": 24,
+          "total_pairs": 40,
+          "fraction_below_threshold": 60.0
+        }
+      }
+    },
+    "paste_aware_w100": {
+      "unprotected": {
+        "ArcFace": {
+          "mean_similarity": 0.7038,
+          "pairs_below_threshold": 0,
+          "total_pairs": 40,
+          "fraction_below_threshold": 0.0
+        },
+        "FaceNet": {
+          "mean_similarity": 0.7681,
+          "pairs_below_threshold": 0,
+          "total_pairs": 40,
+          "fraction_below_threshold": 0.0
+        }
+      },
+      "stage1_opt_crop": {
+        "ArcFace": {
+          "mean_similarity": -0.0666,
+          "pairs_below_threshold": 37,
+          "total_pairs": 40,
+          "fraction_below_threshold": 92.5
+        },
+        "FaceNet": {
+          "mean_similarity": 0.0692,
+          "pairs_below_threshold": 35,
+          "total_pairs": 40,
+          "fraction_below_threshold": 87.5
+        }
+      },
+      "stage2_pasted_float": {
+        "ArcFace": {
+          "mean_similarity": -0.0378,
+          "pairs_below_threshold": 34,
+          "total_pairs": 40,
+          "fraction_below_threshold": 85.0
+        },
+        "FaceNet": {
+          "mean_similarity": 0.1146,
+          "pairs_below_threshold": 35,
+          "total_pairs": 40,
+          "fraction_below_threshold": 87.5
+        }
+      },
+      "stage3a_8bit_round": {
+        "ArcFace": {
+          "mean_similarity": -0.0368,
+          "pairs_below_threshold": 34,
+          "total_pairs": 40,
+          "fraction_below_threshold": 85.0
+        },
+        "FaceNet": {
+          "mean_similarity": 0.1152,
+          "pairs_below_threshold": 35,
+          "total_pairs": 40,
+          "fraction_below_threshold": 87.5
+        }
+      },
+      "stage3b_png_reload": {
+        "ArcFace": {
+          "mean_similarity": 0.0425,
+          "pairs_below_threshold": 31,
+          "total_pairs": 40,
+          "fraction_below_threshold": 77.5
+        },
+        "FaceNet": {
+          "mean_similarity": 0.2105,
+          "pairs_below_threshold": 30,
+          "total_pairs": 40,
+          "fraction_below_threshold": 75.0
+        }
+      },
+      "stage4_jpeg_q50": {
+        "ArcFace": {
+          "mean_similarity": 0.1006,
+          "pairs_below_threshold": 25,
+          "total_pairs": 40,
+          "fraction_below_threshold": 62.5
+        },
+        "FaceNet": {
+          "mean_similarity": 0.2477,
+          "pairs_below_threshold": 29,
+          "total_pairs": 40,
+          "fraction_below_threshold": 72.5
+        }
+      }
+    }
+  }
+}

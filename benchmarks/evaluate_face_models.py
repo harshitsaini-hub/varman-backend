@@ -57,6 +57,7 @@ PREPROCESSING_CONFIG = {
     "arcface": "canonical_5point_affine_112x112_rgb_norm_127.5",
     "sface": "opencv_sface_alignCrop_112x112_bgr",
     "facenet": "bbox_margin_0.15_resize_160x160_rgb_norm_127.5_128.0",
+    "mobilefacenet": "canonical_5point_affine_112x112_rgb_norm_127.5",
 }
 
 DEFAULT_JPEG_QUALITIES = [95, 85, 80, 75, 70, 60, 50]
@@ -347,6 +348,14 @@ class ModelSuite:
             print(f"[Device Init] PyTorch running on CPU")
 
         # 2. ONNX Runtime Dynamic Providers
+        if sys.platform == "win32" and requested_device == "cuda" and torch.cuda.is_available():
+            torch_lib_dir = Path(torch.__file__).parent / "lib"
+            if torch_lib_dir.exists() and hasattr(os, "add_dll_directory"):
+                try:
+                    os.add_dll_directory(str(torch_lib_dir))
+                except Exception as dll_err:
+                    print(f"[Device Init] Warning: Could not register torch/lib DLL directory: {dll_err}")
+
         available_providers = ort.get_available_providers()
         self.requested_onnx_providers = [
             p for p in ["CUDAExecutionProvider", "CPUExecutionProvider"] if p in available_providers
@@ -361,6 +370,7 @@ class ModelSuite:
         self._init_facenet()
         self._init_arcface()
         self._init_sface()
+        self._init_mobilefacenet()
 
     def _init_facenet(self):
         from facenet_pytorch import InceptionResnetV1
@@ -425,6 +435,37 @@ class ModelSuite:
         }
         print(f"[ModelSuite] SFace initialized. Executing backend: OpenCV-FaceRecognizerSF (CPU)")
 
+    def _init_mobilefacenet(self):
+        mbf_path = self.models_dir / "w600k_mbf.onnx"
+        if not mbf_path.exists():
+            raise FileNotFoundError(f"MobileFaceNet model missing at {mbf_path}")
+
+        sess_opts = ort.SessionOptions()
+        sess_opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+
+        try:
+            self.mbf_session = ort.InferenceSession(
+                str(mbf_path),
+                sess_options=sess_opts,
+                providers=self.requested_onnx_providers,
+            )
+        except Exception:
+            self.mbf_session = ort.InferenceSession(
+                str(mbf_path),
+                sess_options=sess_opts,
+                providers=["CPUExecutionProvider"],
+            )
+
+        active_provider = self.mbf_session.get_providers()[0]
+        self.mbf_in_name = self.mbf_session.get_inputs()[0].name
+        self.mbf_out_name = self.mbf_session.get_outputs()[0].name
+        self.diagnostics["mobilefacenet"] = {
+            "backend": "ONNXRuntime",
+            "active_provider": active_provider,
+            "device": active_provider,
+        }
+        print(f"[ModelSuite] MobileFaceNet session configured. Executing provider: {active_provider}")
+
     def extract_facenet(self, face_160_bgr: np.ndarray) -> np.ndarray:
         rgb = cv2.cvtColor(face_160_bgr, cv2.COLOR_BGR2RGB)
         tensor = (torch.tensor(rgb, dtype=torch.float32).permute(2, 0, 1) - 127.5) / 128.0
@@ -447,13 +488,21 @@ class ModelSuite:
         norm = np.linalg.norm(feat)
         return feat / (norm + 1e-12)
 
+    def extract_mobilefacenet(self, face_112_bgr: np.ndarray) -> np.ndarray:
+        rgb = cv2.cvtColor(face_112_bgr, cv2.COLOR_BGR2RGB)
+        tensor = (rgb.transpose(2, 0, 1).astype(np.float32) - 127.5) / 127.5
+        feed = {self.mbf_in_name: tensor[np.newaxis, ...]}
+        emb = self.mbf_session.run([self.mbf_out_name], feed)[0].flatten()
+        norm = np.linalg.norm(emb)
+        return emb / (norm + 1e-12)
+
     def extract_model_features(
         self,
         img_bgr: np.ndarray,
         face_info: Dict[str, Any],
     ) -> Tuple[Dict[str, Optional[np.ndarray]], Dict[str, Optional[str]]]:
         """
-        Extracts embeddings for FaceNet, ArcFace, and SFace with explicit failure tracking.
+        Extracts embeddings for FaceNet, ArcFace, SFace, and MobileFaceNet with explicit failure tracking.
         Never resizes entire image on failure.
         """
         embeddings: Dict[str, Optional[np.ndarray]] = {}
@@ -486,6 +535,14 @@ class ModelSuite:
         else:
             embeddings["SFace"] = None
             failures["SFace"] = err_sf
+
+        # 4. MobileFaceNet (5-point Canonical Affine Alignment)
+        if crop_af is not None:
+            embeddings["MobileFaceNet"] = self.extract_mobilefacenet(crop_af)
+            failures["MobileFaceNet"] = None
+        else:
+            embeddings["MobileFaceNet"] = None
+            failures["MobileFaceNet"] = err_af
 
         return embeddings, failures
 
@@ -565,7 +622,7 @@ def calibrate_thresholds_on_split(
     lfw_train = fetch_lfw_pairs(subset="train", color=True, resize=1.0, slice_=None)
     impostor_indices = np.where(lfw_train.target == 0)[0][:max_impostors]
 
-    models = ["FaceNet", "ArcFace", "SFace"]
+    models = ["FaceNet", "ArcFace", "SFace", "MobileFaceNet"]
     scores: Dict[str, List[float]] = {m: [] for m in models}
 
     valid_impostors = 0
@@ -625,6 +682,7 @@ def calibrate_thresholds_on_split(
 def run_face_recognition_benchmark(
     num_pairs: int = 500,
     preset: str = "Balanced",
+    mode: str = "fast",
     jpeg_qualities: Optional[List[int]] = None,
     requested_device: str = "cuda",
     seed: int = 42,
@@ -638,7 +696,7 @@ def run_face_recognition_benchmark(
     print("\n" + "=" * 90)
     print("STARTING AUDITABLE FACE RECOGNITION BENCHMARK EVALUATION")
     print("=" * 90)
-    print(f"Preset: {preset} | Target Genuine Pairs: {num_pairs} | Seed: {seed}")
+    print(f"Preset: {preset} | Mode: {mode} | Target Genuine Pairs: {num_pairs} | Seed: {seed}")
     print(f"Evaluation Split: {EVALUATION_SPLIT_NAME} | Qualities: {jpeg_qualities}")
     print("-" * 90)
 
@@ -652,6 +710,7 @@ def run_face_recognition_benchmark(
         "ArcFace": compute_file_sha256(models_dir / "w600k_r50.onnx"),
         "SFace": compute_file_sha256(models_dir / "face_recognition_sface_2021dec.onnx"),
         "FaceNet": "InceptionResnetV1_vggface2",
+        "MobileFaceNet": compute_file_sha256(models_dir / "w600k_mbf.onnx"),
     }
 
     # 1. Resolve Decision Thresholds (Self-Validating Cache vs Dev Split)
@@ -698,7 +757,7 @@ def run_face_recognition_benchmark(
     print(f"[Benchmark] Estimated runtime: ~{est_total_min:.1f} minutes. Live ETA updates printed every 10 pairs.", flush=True)
     print(f"[Benchmark] Starting evaluation loop now (Ctrl+C anytime to stop and save partial results)...\n", flush=True)
 
-    models = ["FaceNet", "ArcFace", "SFace"]
+    models = ["FaceNet", "ArcFace", "SFace", "MobileFaceNet"]
 
     # Granular state maps: state_maps[model][quality_str] -> list of pair audit records
     state_maps: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
@@ -745,7 +804,7 @@ def run_face_recognition_benchmark(
             emb1_clean, fail1 = model_suite.extract_model_features(bgr1, face1_clean)
 
             # Run Varman Protection once on original image 1
-            prot_bgr, prot_meta = engine.protect(bgr1, preset_name=preset)
+            prot_bgr, prot_meta = engine.protect(bgr1, preset_name=preset, mode=mode)
             if not prot_meta.get("faces"):
                 skipped_pairs_count += 1
                 for m in models:
@@ -953,6 +1012,7 @@ def run_face_recognition_benchmark(
             "timestamp_utc": datetime.datetime.utcnow().isoformat(),
             "random_seed": seed,
             "execution_preset": preset,
+            "execution_mode": mode,
             "calibration_split": CALIBRATION_SPLIT_NAME,
             "evaluation_split": EVALUATION_SPLIT_NAME,
             "calibration_provenance": calibration_provenance,
@@ -1012,6 +1072,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Varman Refactored Auditable Face Recognition Benchmark")
     parser.add_argument("--pairs", type=int, default=500, help="Number of genuine LFW pairs (default: 500)")
     parser.add_argument("--preset", type=str, default="Balanced", choices=["Light", "Balanced", "Aggressive"])
+    parser.add_argument("--mode", type=str, default="fast", choices=["fast", "strong"], help="Protection engine mode: 'fast' (CPU DCT) or 'strong' (GPU EOT-PGD)")
     parser.add_argument("--device", type=str, default="cuda", choices=["cuda", "cpu"])
     parser.add_argument("--seed", type=int, default=42, help="Random seed for noise control (default: 42)")
     parser.add_argument("--recalibrate", action="store_true", help="Force recalibration on impostor dev split")
@@ -1022,6 +1083,7 @@ if __name__ == "__main__":
     run_face_recognition_benchmark(
         num_pairs=args.pairs,
         preset=args.preset,
+        mode=args.mode,
         requested_device=args.device,
         seed=args.seed,
         recalibrate=args.recalibrate,

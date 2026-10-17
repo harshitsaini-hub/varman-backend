@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Any
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -58,7 +59,7 @@ class Settings(BaseSettings):
 
     # ── Derived helpers (not env-driven) ───────────────────────────────────
 
-    def model_post_init(self, __context) -> None:
+    def model_post_init(self, __context: Any = None) -> None:
         """Resolve defaults that depend on other fields and ensure dirs exist."""
         if not self.storage_dir:
             self.storage_dir = os.path.join(self.base_dir, "storage")

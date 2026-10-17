@@ -44,11 +44,34 @@ class ProtectionEngine:
         },
     }
 
+    STRONG_PRESETS: Dict[str, Dict[str, Any]] = {
+        "F5": {
+            "eps": 8.0 / 255.0,
+            "mask_scale": 1.15,
+            "steps": 25,
+            "alpha": (8.0 / 255.0) / 7.0,
+            "mu": 0.9,
+            "w_fn": 1.0,
+            "luminance_only": True,
+            "chroma_scale": 0.0,
+            "enable_guardrail": False,
+            "feather_sigma": 4.0,
+        },
+    }
+
     def __init__(self, model_dir: Optional[str] = None):
         self.model_dir = model_dir or os.path.join(settings.base_dir, "models")
         self.yunet_path = os.path.join(self.model_dir, "face_detection_yunet_2023mar.onnx")
         self.yunet_detector = None
+        self.strong_engine = None
         self._init_yunet()
+
+    def _get_strong_engine(self):
+        """Lazily initialize StrongProtectionEngine on CUDA device."""
+        if self.strong_engine is None:
+            from app.protection.strong_engine import StrongProtectionEngine
+            self.strong_engine = StrongProtectionEngine()
+        return self.strong_engine
 
     def _init_yunet(self):
         """Lazy load YuNet face detector if ONNX file is present."""
@@ -221,7 +244,7 @@ class ProtectionEngine:
         grid[::8, :, :] = 1.0
         grid[:, ::8, :] = 1.0
 
-        pattern = (grid * 10.0 - 5.0)
+        pattern = grid * 10.0
         out = img_bgr.astype(np.float32) + alpha * pattern
         return np.clip(out, 0, 255).astype(np.uint8)
 
@@ -230,15 +253,71 @@ class ProtectionEngine:
         img_bgr: np.ndarray,
         preset_name: str = "Balanced",
         enable_grid: bool = False,
+        mode: str = "fast",
+        **kwargs,
     ) -> Tuple[np.ndarray, Dict[str, Any]]:
         """
-        Execute protection generation pipeline:
-          1. YuNet Face & Landmark Detection (or skip if no face)
-          2. Relative Soft-Masked Landmark Face Warping
-          3. Y-Channel DCT Perturbation
-          4. Optional Spatial Grid Layer
-          5. Adaptive Quality Guardrail
+        Execute image protection pipeline with explicit mode selection:
+          - mode='fast' (default): Lightweight CPU-based YuNet + landmark warping + DCT perturbation.
+          - mode='strong': GPU-based EOT-PGD directly optimizing aligned face crops.
+                           If CUDA is unavailable, explicitly falls back to 'fast' with clear metadata flags.
         """
+        requested_mode = mode.lower() if isinstance(mode, str) else "fast"
+
+        if requested_mode == "strong":
+            import torch
+            if not torch.cuda.is_available():
+                logger.warning(
+                    "[ProtectionEngine] Strong mode requested, but CUDA is unavailable. "
+                    "Falling back to fast CPU mode."
+                )
+                prot_bgr, meta = self._protect_fast(img_bgr, preset_name, enable_grid)
+                meta["mode"] = "fast"
+                meta["requested_mode"] = "strong"
+                meta["fallback_to_fast"] = True
+                meta["fallback_reason"] = "CUDA is not available on this host for strong mode execution"
+                return prot_bgr, meta
+
+            # CUDA is available - execute StrongProtectionEngine
+            faces = self.detect_faces(img_bgr)
+            logger.info(f"[ProtectionEngine] Strong mode: detected {len(faces)} face(s).")
+            strong_engine = self._get_strong_engine()
+            prot_bgr, strong_meta = strong_engine.protect_image(
+                img_bgr, faces, **kwargs
+            )
+            strong_meta["preset"] = preset_name
+            strong_meta["mode"] = "strong"
+            strong_meta["requested_mode"] = "strong"
+            strong_meta["fallback_to_fast"] = False
+            strong_meta["face_count"] = len(faces)
+            strong_meta["faces"] = faces
+            return prot_bgr, strong_meta
+
+        # Default: Fast CPU mode
+        prot_bgr, meta = self._protect_fast(img_bgr, preset_name, enable_grid)
+        meta["mode"] = "fast"
+        meta["requested_mode"] = "fast"
+        meta["fallback_to_fast"] = False
+        return prot_bgr, meta
+
+    def protect_image(
+        self,
+        img_bgr: np.ndarray,
+        preset_name: str = "Balanced",
+        enable_grid: bool = False,
+        mode: str = "fast",
+        **kwargs,
+    ) -> Tuple[np.ndarray, Dict[str, Any]]:
+        """Alias for protect()."""
+        return self.protect(img_bgr, preset_name=preset_name, enable_grid=enable_grid, mode=mode, **kwargs)
+
+    def _protect_fast(
+        self,
+        img_bgr: np.ndarray,
+        preset_name: str = "Balanced",
+        enable_grid: bool = False,
+    ) -> Tuple[np.ndarray, Dict[str, Any]]:
+        """Internal execution of the fast CPU-based YuNet + DCT engine."""
         preset = self.PRESETS.get(preset_name, self.PRESETS["Balanced"])
         warp_scale = preset["warp_scale"]
         dct_strength = preset["dct_strength"]
@@ -246,7 +325,7 @@ class ProtectionEngine:
         target_face_ssim = preset["target_face_ssim"]
 
         faces = self.detect_faces(img_bgr)
-        logger.info(f"[ProtectionEngine] Detected {len(faces)} face(s) using preset '{preset_name}'.")
+        logger.info(f"[ProtectionEngine] Fast mode: detected {len(faces)} face(s) using preset '{preset_name}'.")
 
         attenuation_factor = 1.0
         min_attenuation = 0.1
@@ -317,6 +396,11 @@ class ProtectionEngine:
         """Internal fast SSIM metric for guardrail attenuation loop."""
         g1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY).astype(np.float64)
         g2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY).astype(np.float64)
+
+        h, w = g1.shape[:2]
+        if h < 11 or w < 11:
+            g1 = cv2.resize(g1, (max(11, w), max(11, h)), interpolation=cv2.INTER_NEAREST)
+            g2 = cv2.resize(g2, (max(11, w), max(11, h)), interpolation=cv2.INTER_NEAREST)
         
         C1 = (0.01 * 255) ** 2
         C2 = (0.03 * 255) ** 2

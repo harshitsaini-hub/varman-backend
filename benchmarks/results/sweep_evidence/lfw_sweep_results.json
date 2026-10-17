@@ -1,0 +1,1006 @@
+{
+  "uniform_eps4": {
+    "config": {
+      "name": "uniform_eps4",
+      "mode": "strong",
+      "eps": 0.01568627450980392,
+      "enable_guardrail": false,
+      "texture_weighted": false,
+      "label": "Uniform (eps=4/255)"
+    },
+    "visibility": {
+      "face_ssim_mean": 0.9817,
+      "face_ssim_std": 0.0029,
+      "full_ssim_mean": 0.9929,
+      "ciede2000_mean": 0.849,
+      "ciede2000_p95": 2.439,
+      "smooth_energy_share_pct": 40.09,
+      "highpass_artifact_score": 3.039,
+      "latency_ms_mean": 2147.6,
+      "peak_vram_mb": 500.6
+    },
+    "performance": {
+      "png": {
+        "FaceNet": {
+          "flip_rate_1pct": 5.0,
+          "flip_rate_01pct": 11.67,
+          "mean_sim_drop": 0.122
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 3.33,
+          "flip_rate_01pct": 5.0,
+          "mean_sim_drop": 0.232
+        },
+        "SFace": {
+          "flip_rate_1pct": 5.0,
+          "flip_rate_01pct": 5.0,
+          "mean_sim_drop": 0.1419
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.1477
+        }
+      },
+      "q95": {
+        "FaceNet": {
+          "flip_rate_1pct": 5.0,
+          "flip_rate_01pct": 10.0,
+          "mean_sim_drop": 0.1188
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 3.33,
+          "flip_rate_01pct": 3.33,
+          "mean_sim_drop": 0.225
+        },
+        "SFace": {
+          "flip_rate_1pct": 5.0,
+          "flip_rate_01pct": 5.0,
+          "mean_sim_drop": 0.1382
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 3.33,
+          "mean_sim_drop": 0.1444
+        }
+      },
+      "q75": {
+        "FaceNet": {
+          "flip_rate_1pct": 5.0,
+          "flip_rate_01pct": 8.33,
+          "mean_sim_drop": 0.1164
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 3.33,
+          "flip_rate_01pct": 3.33,
+          "mean_sim_drop": 0.2044
+        },
+        "SFace": {
+          "flip_rate_1pct": 3.33,
+          "flip_rate_01pct": 8.33,
+          "mean_sim_drop": 0.133
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.1364
+        }
+      },
+      "q50": {
+        "FaceNet": {
+          "flip_rate_1pct": 5.0,
+          "flip_rate_01pct": 6.67,
+          "mean_sim_drop": 0.1064
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.1841
+        },
+        "SFace": {
+          "flip_rate_1pct": 3.33,
+          "flip_rate_01pct": 6.67,
+          "mean_sim_drop": 0.1262
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.1321
+        }
+      }
+    }
+  },
+  "uniform_eps6": {
+    "config": {
+      "name": "uniform_eps6",
+      "mode": "strong",
+      "eps": 0.023529411764705882,
+      "enable_guardrail": false,
+      "texture_weighted": false,
+      "label": "Uniform (eps=6/255)"
+    },
+    "visibility": {
+      "face_ssim_mean": 0.9658,
+      "face_ssim_std": 0.0054,
+      "full_ssim_mean": 0.9874,
+      "ciede2000_mean": 1.195,
+      "ciede2000_p95": 3.417,
+      "smooth_energy_share_pct": 43.68,
+      "highpass_artifact_score": 3.673,
+      "latency_ms_mean": 2211.5,
+      "peak_vram_mb": 500.6
+    },
+    "performance": {
+      "png": {
+        "FaceNet": {
+          "flip_rate_1pct": 15.0,
+          "flip_rate_01pct": 30.0,
+          "mean_sim_drop": 0.2355
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 18.33,
+          "flip_rate_01pct": 20.0,
+          "mean_sim_drop": 0.3607
+        },
+        "SFace": {
+          "flip_rate_1pct": 11.67,
+          "flip_rate_01pct": 18.33,
+          "mean_sim_drop": 0.2397
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 11.67,
+          "flip_rate_01pct": 16.67,
+          "mean_sim_drop": 0.2417
+        }
+      },
+      "q95": {
+        "FaceNet": {
+          "flip_rate_1pct": 13.33,
+          "flip_rate_01pct": 23.33,
+          "mean_sim_drop": 0.2281
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 13.33,
+          "flip_rate_01pct": 20.0,
+          "mean_sim_drop": 0.3522
+        },
+        "SFace": {
+          "flip_rate_1pct": 13.33,
+          "flip_rate_01pct": 16.67,
+          "mean_sim_drop": 0.2374
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 10.0,
+          "flip_rate_01pct": 15.0,
+          "mean_sim_drop": 0.236
+        }
+      },
+      "q75": {
+        "FaceNet": {
+          "flip_rate_1pct": 15.0,
+          "flip_rate_01pct": 21.67,
+          "mean_sim_drop": 0.2181
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 13.33,
+          "flip_rate_01pct": 18.33,
+          "mean_sim_drop": 0.3268
+        },
+        "SFace": {
+          "flip_rate_1pct": 13.33,
+          "flip_rate_01pct": 13.33,
+          "mean_sim_drop": 0.2242
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 10.0,
+          "flip_rate_01pct": 11.67,
+          "mean_sim_drop": 0.2248
+        }
+      },
+      "q50": {
+        "FaceNet": {
+          "flip_rate_1pct": 13.33,
+          "flip_rate_01pct": 18.33,
+          "mean_sim_drop": 0.2033
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 5.0,
+          "flip_rate_01pct": 10.0,
+          "mean_sim_drop": 0.2857
+        },
+        "SFace": {
+          "flip_rate_1pct": 10.0,
+          "flip_rate_01pct": 13.33,
+          "mean_sim_drop": 0.2065
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 10.0,
+          "flip_rate_01pct": 11.67,
+          "mean_sim_drop": 0.2082
+        }
+      }
+    }
+  },
+  "uniform_eps8": {
+    "config": {
+      "name": "uniform_eps8",
+      "mode": "strong",
+      "eps": 0.03137254901960784,
+      "enable_guardrail": false,
+      "texture_weighted": false,
+      "label": "Uniform (eps=8/255)"
+    },
+    "visibility": {
+      "face_ssim_mean": 0.9465,
+      "face_ssim_std": 0.0083,
+      "full_ssim_mean": 0.9808,
+      "ciede2000_mean": 1.556,
+      "ciede2000_p95": 4.46,
+      "smooth_energy_share_pct": 45.59,
+      "highpass_artifact_score": 4.405,
+      "latency_ms_mean": 2428.3,
+      "peak_vram_mb": 500.6
+    },
+    "performance": {
+      "png": {
+        "FaceNet": {
+          "flip_rate_1pct": 40.0,
+          "flip_rate_01pct": 51.67,
+          "mean_sim_drop": 0.3489
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 25.0,
+          "flip_rate_01pct": 35.0,
+          "mean_sim_drop": 0.4473
+        },
+        "SFace": {
+          "flip_rate_1pct": 31.67,
+          "flip_rate_01pct": 41.67,
+          "mean_sim_drop": 0.3307
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 21.67,
+          "flip_rate_01pct": 31.67,
+          "mean_sim_drop": 0.3236
+        }
+      },
+      "q95": {
+        "FaceNet": {
+          "flip_rate_1pct": 35.0,
+          "flip_rate_01pct": 50.0,
+          "mean_sim_drop": 0.3399
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 23.33,
+          "flip_rate_01pct": 31.67,
+          "mean_sim_drop": 0.4397
+        },
+        "SFace": {
+          "flip_rate_1pct": 31.67,
+          "flip_rate_01pct": 40.0,
+          "mean_sim_drop": 0.3259
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 20.0,
+          "flip_rate_01pct": 30.0,
+          "mean_sim_drop": 0.3193
+        }
+      },
+      "q75": {
+        "FaceNet": {
+          "flip_rate_1pct": 30.0,
+          "flip_rate_01pct": 46.67,
+          "mean_sim_drop": 0.3236
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 15.0,
+          "flip_rate_01pct": 21.67,
+          "mean_sim_drop": 0.4094
+        },
+        "SFace": {
+          "flip_rate_1pct": 25.0,
+          "flip_rate_01pct": 41.67,
+          "mean_sim_drop": 0.3113
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 18.33,
+          "flip_rate_01pct": 23.33,
+          "mean_sim_drop": 0.3008
+        }
+      },
+      "q50": {
+        "FaceNet": {
+          "flip_rate_1pct": 25.0,
+          "flip_rate_01pct": 45.0,
+          "mean_sim_drop": 0.3023
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 13.33,
+          "flip_rate_01pct": 16.67,
+          "mean_sim_drop": 0.3724
+        },
+        "SFace": {
+          "flip_rate_1pct": 18.33,
+          "flip_rate_01pct": 31.67,
+          "mean_sim_drop": 0.2945
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 15.0,
+          "flip_rate_01pct": 21.67,
+          "mean_sim_drop": 0.2893
+        }
+      }
+    }
+  },
+  "uniform_eps12": {
+    "config": {
+      "name": "uniform_eps12",
+      "mode": "strong",
+      "eps": 0.047058823529411764,
+      "enable_guardrail": false,
+      "texture_weighted": false,
+      "label": "Uniform (eps=12/255)"
+    },
+    "visibility": {
+      "face_ssim_mean": 0.9046,
+      "face_ssim_std": 0.0139,
+      "full_ssim_mean": 0.9668,
+      "ciede2000_mean": 2.237,
+      "ciede2000_p95": 6.405,
+      "smooth_energy_share_pct": 46.82,
+      "highpass_artifact_score": 5.986,
+      "latency_ms_mean": 2412.9,
+      "peak_vram_mb": 500.6
+    },
+    "performance": {
+      "png": {
+        "FaceNet": {
+          "flip_rate_1pct": 76.67,
+          "flip_rate_01pct": 86.67,
+          "mean_sim_drop": 0.5388
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 63.33,
+          "flip_rate_01pct": 76.67,
+          "mean_sim_drop": 0.5673
+        },
+        "SFace": {
+          "flip_rate_1pct": 70.0,
+          "flip_rate_01pct": 78.33,
+          "mean_sim_drop": 0.4661
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 56.67,
+          "flip_rate_01pct": 70.0,
+          "mean_sim_drop": 0.4399
+        }
+      },
+      "q95": {
+        "FaceNet": {
+          "flip_rate_1pct": 73.33,
+          "flip_rate_01pct": 85.0,
+          "mean_sim_drop": 0.5266
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 58.33,
+          "flip_rate_01pct": 73.33,
+          "mean_sim_drop": 0.5583
+        },
+        "SFace": {
+          "flip_rate_1pct": 66.67,
+          "flip_rate_01pct": 75.0,
+          "mean_sim_drop": 0.4604
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 53.33,
+          "flip_rate_01pct": 63.33,
+          "mean_sim_drop": 0.4318
+        }
+      },
+      "q75": {
+        "FaceNet": {
+          "flip_rate_1pct": 75.0,
+          "flip_rate_01pct": 81.67,
+          "mean_sim_drop": 0.503
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 53.33,
+          "flip_rate_01pct": 65.0,
+          "mean_sim_drop": 0.533
+        },
+        "SFace": {
+          "flip_rate_1pct": 65.0,
+          "flip_rate_01pct": 70.0,
+          "mean_sim_drop": 0.4384
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 51.67,
+          "flip_rate_01pct": 63.33,
+          "mean_sim_drop": 0.4218
+        }
+      },
+      "q50": {
+        "FaceNet": {
+          "flip_rate_1pct": 65.0,
+          "flip_rate_01pct": 78.33,
+          "mean_sim_drop": 0.4705
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 38.33,
+          "flip_rate_01pct": 51.67,
+          "mean_sim_drop": 0.4937
+        },
+        "SFace": {
+          "flip_rate_1pct": 60.0,
+          "flip_rate_01pct": 68.33,
+          "mean_sim_drop": 0.4223
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 41.67,
+          "flip_rate_01pct": 51.67,
+          "mean_sim_drop": 0.4033
+        }
+      }
+    }
+  },
+  "texture_eps4": {
+    "config": {
+      "name": "texture_eps4",
+      "mode": "strong",
+      "eps": 0.01568627450980392,
+      "enable_guardrail": false,
+      "texture_weighted": true,
+      "w_min": 0.1,
+      "label": "Texture-Weighted (eps=4/255)"
+    },
+    "visibility": {
+      "face_ssim_mean": 0.9954,
+      "face_ssim_std": 0.001,
+      "full_ssim_mean": 0.9977,
+      "ciede2000_mean": 0.456,
+      "ciede2000_p95": 1.566,
+      "smooth_energy_share_pct": 15.0,
+      "highpass_artifact_score": 2.558,
+      "latency_ms_mean": 2449.5,
+      "peak_vram_mb": 500.7
+    },
+    "performance": {
+      "png": {
+        "FaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0262
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0505
+        },
+        "SFace": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0295
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0306
+        }
+      },
+      "q95": {
+        "FaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0241
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0475
+        },
+        "SFace": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0287
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0284
+        }
+      },
+      "q75": {
+        "FaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0236
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0488
+        },
+        "SFace": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0304
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0321
+        }
+      },
+      "q50": {
+        "FaceNet": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0266
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0518
+        },
+        "SFace": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0344
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0381
+        }
+      }
+    }
+  },
+  "texture_eps6": {
+    "config": {
+      "name": "texture_eps6",
+      "mode": "strong",
+      "eps": 0.023529411764705882,
+      "enable_guardrail": false,
+      "texture_weighted": true,
+      "w_min": 0.1,
+      "label": "Texture-Weighted (eps=6/255)"
+    },
+    "visibility": {
+      "face_ssim_mean": 0.9934,
+      "face_ssim_std": 0.0013,
+      "full_ssim_mean": 0.997,
+      "ciede2000_mean": 0.579,
+      "ciede2000_p95": 2.033,
+      "smooth_energy_share_pct": 13.68,
+      "highpass_artifact_score": 2.808,
+      "latency_ms_mean": 2440.4,
+      "peak_vram_mb": 500.7
+    },
+    "performance": {
+      "png": {
+        "FaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0467
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0926
+        },
+        "SFace": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.058
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0594
+        }
+      },
+      "q95": {
+        "FaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0456
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0892
+        },
+        "SFace": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0551
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0569
+        }
+      },
+      "q75": {
+        "FaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0443
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0859
+        },
+        "SFace": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0542
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0605
+        }
+      },
+      "q50": {
+        "FaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0432
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0792
+        },
+        "SFace": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0561
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0589
+        }
+      }
+    }
+  },
+  "texture_eps8": {
+    "config": {
+      "name": "texture_eps8",
+      "mode": "strong",
+      "eps": 0.03137254901960784,
+      "enable_guardrail": false,
+      "texture_weighted": true,
+      "w_min": 0.1,
+      "label": "Texture-Weighted (eps=8/255)"
+    },
+    "visibility": {
+      "face_ssim_mean": 0.9908,
+      "face_ssim_std": 0.0018,
+      "full_ssim_mean": 0.9961,
+      "ciede2000_mean": 0.713,
+      "ciede2000_p95": 2.57,
+      "smooth_energy_share_pct": 12.58,
+      "highpass_artifact_score": 3.104,
+      "latency_ms_mean": 2437.9,
+      "peak_vram_mb": 500.7
+    },
+    "performance": {
+      "png": {
+        "FaceNet": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0798
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.1449
+        },
+        "SFace": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0939
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0875
+        }
+      },
+      "q95": {
+        "FaceNet": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0764
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.1376
+        },
+        "SFace": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0901
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0859
+        }
+      },
+      "q75": {
+        "FaceNet": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.075
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.1294
+        },
+        "SFace": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0863
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0882
+        }
+      },
+      "q50": {
+        "FaceNet": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0722
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.1172
+        },
+        "SFace": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.0853
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.0887
+        }
+      }
+    }
+  },
+  "texture_eps12": {
+    "config": {
+      "name": "texture_eps12",
+      "mode": "strong",
+      "eps": 0.047058823529411764,
+      "enable_guardrail": false,
+      "texture_weighted": true,
+      "w_min": 0.1,
+      "label": "Texture-Weighted (eps=12/255)"
+    },
+    "visibility": {
+      "face_ssim_mean": 0.9834,
+      "face_ssim_std": 0.0035,
+      "full_ssim_mean": 0.9934,
+      "ciede2000_mean": 1.0,
+      "ciede2000_p95": 3.662,
+      "smooth_energy_share_pct": 12.21,
+      "highpass_artifact_score": 3.783,
+      "latency_ms_mean": 2446.9,
+      "peak_vram_mb": 500.7
+    },
+    "performance": {
+      "png": {
+        "FaceNet": {
+          "flip_rate_1pct": 10.0,
+          "flip_rate_01pct": 16.67,
+          "mean_sim_drop": 0.1739
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 1.67,
+          "flip_rate_01pct": 5.0,
+          "mean_sim_drop": 0.2577
+        },
+        "SFace": {
+          "flip_rate_1pct": 3.33,
+          "flip_rate_01pct": 6.67,
+          "mean_sim_drop": 0.1708
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.1691
+        }
+      },
+      "q95": {
+        "FaceNet": {
+          "flip_rate_1pct": 6.67,
+          "flip_rate_01pct": 16.67,
+          "mean_sim_drop": 0.1657
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 5.0,
+          "mean_sim_drop": 0.2521
+        },
+        "SFace": {
+          "flip_rate_1pct": 3.33,
+          "flip_rate_01pct": 6.67,
+          "mean_sim_drop": 0.1687
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.168
+        }
+      },
+      "q75": {
+        "FaceNet": {
+          "flip_rate_1pct": 6.67,
+          "flip_rate_01pct": 16.67,
+          "mean_sim_drop": 0.16
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 1.67,
+          "mean_sim_drop": 0.2291
+        },
+        "SFace": {
+          "flip_rate_1pct": 3.33,
+          "flip_rate_01pct": 5.0,
+          "mean_sim_drop": 0.1597
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.1599
+        }
+      },
+      "q50": {
+        "FaceNet": {
+          "flip_rate_1pct": 3.33,
+          "flip_rate_01pct": 15.0,
+          "mean_sim_drop": 0.149
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.2066
+        },
+        "SFace": {
+          "flip_rate_1pct": 3.33,
+          "flip_rate_01pct": 3.33,
+          "mean_sim_drop": 0.1535
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 0.0,
+          "flip_rate_01pct": 0.0,
+          "mean_sim_drop": 0.1553
+        }
+      }
+    }
+  },
+  "reference_default": {
+    "config": {
+      "name": "reference_default",
+      "mode": "strong",
+      "eps": 0.027450980392156862,
+      "enable_guardrail": true,
+      "target_face_ssim": 0.9,
+      "texture_weighted": false,
+      "label": "Reference Default (eps=7/255, Guardrail ON)"
+    },
+    "visibility": {
+      "face_ssim_mean": 0.9701,
+      "face_ssim_std": 0.0051,
+      "full_ssim_mean": 0.9889,
+      "ciede2000_mean": 1.136,
+      "ciede2000_p95": 3.25,
+      "smooth_energy_share_pct": 42.86,
+      "highpass_artifact_score": 3.539,
+      "latency_ms_mean": 2451.2,
+      "peak_vram_mb": 500.6
+    },
+    "performance": {
+      "png": {
+        "FaceNet": {
+          "flip_rate_1pct": 13.33,
+          "flip_rate_01pct": 16.67,
+          "mean_sim_drop": 0.1992
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 5.0,
+          "flip_rate_01pct": 11.67,
+          "mean_sim_drop": 0.3044
+        },
+        "SFace": {
+          "flip_rate_1pct": 11.67,
+          "flip_rate_01pct": 13.33,
+          "mean_sim_drop": 0.2087
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 8.33,
+          "flip_rate_01pct": 11.67,
+          "mean_sim_drop": 0.2046
+        }
+      },
+      "q95": {
+        "FaceNet": {
+          "flip_rate_1pct": 11.67,
+          "flip_rate_01pct": 15.0,
+          "mean_sim_drop": 0.191
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 5.0,
+          "flip_rate_01pct": 6.67,
+          "mean_sim_drop": 0.2982
+        },
+        "SFace": {
+          "flip_rate_1pct": 10.0,
+          "flip_rate_01pct": 15.0,
+          "mean_sim_drop": 0.2079
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 6.67,
+          "flip_rate_01pct": 11.67,
+          "mean_sim_drop": 0.2021
+        }
+      },
+      "q75": {
+        "FaceNet": {
+          "flip_rate_1pct": 10.0,
+          "flip_rate_01pct": 16.67,
+          "mean_sim_drop": 0.1814
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 3.33,
+          "flip_rate_01pct": 5.0,
+          "mean_sim_drop": 0.2719
+        },
+        "SFace": {
+          "flip_rate_1pct": 10.0,
+          "flip_rate_01pct": 10.0,
+          "mean_sim_drop": 0.1945
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 6.67,
+          "flip_rate_01pct": 8.33,
+          "mean_sim_drop": 0.1908
+        }
+      },
+      "q50": {
+        "FaceNet": {
+          "flip_rate_1pct": 8.33,
+          "flip_rate_01pct": 13.33,
+          "mean_sim_drop": 0.1716
+        },
+        "ArcFace": {
+          "flip_rate_1pct": 3.33,
+          "flip_rate_01pct": 3.33,
+          "mean_sim_drop": 0.2477
+        },
+        "SFace": {
+          "flip_rate_1pct": 6.67,
+          "flip_rate_01pct": 10.0,
+          "mean_sim_drop": 0.1855
+        },
+        "MobileFaceNet": {
+          "flip_rate_1pct": 5.0,
+          "flip_rate_01pct": 10.0,
+          "mean_sim_drop": 0.1861
+        }
+      }
+    }
+  }
+}
