@@ -78,7 +78,16 @@ def create_app() -> FastAPI:
     app.include_router(images_router, prefix="/api/images", tags=["Images"])
     app.include_router(analytics_router, prefix="/api/analytics", tags=["Analytics"])
 
-    # ── Health check ───────────────────────────────────────────────────
+    # ── Root & Health check ────────────────────────────────────────────
+    @app.get("/", tags=["System"])
+    async def root():
+        return {
+            "service": "Varman Adversarial Facial Privacy Engine",
+            "version": "3.0.0",
+            "status": "online",
+            "docs_url": "/docs",
+        }
+
     @app.get("/health", tags=["System"])
     async def health_check():
         return {"status": "ok", "service": "varman"}

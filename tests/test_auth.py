@@ -8,8 +8,8 @@ async def test_register_success(client: AsyncClient):
         json={"email": "new@example.com", "password": "securepassword123", "display_name": "New"}
     )
     assert response.status_code == 201
-    assert response.json()["email"] == "new@example.com"
-    assert "id" in response.json()
+    assert "access_token" in response.json()
+    assert "vault_salt" in response.json()
 
 @pytest.mark.asyncio
 async def test_register_duplicate_email(client: AsyncClient, test_user):
@@ -17,8 +17,9 @@ async def test_register_duplicate_email(client: AsyncClient, test_user):
         "/api/auth/register",
         json={"email": test_user.email, "password": "password123"}
     )
-    assert response.status_code == 400
+    assert response.status_code == 409
     assert "already registered" in response.json()["detail"]
+
 
 @pytest.mark.asyncio
 async def test_login_success(client: AsyncClient, test_user):

@@ -57,6 +57,7 @@ async def test_user(db: AsyncSession) -> User:
         email="test@example.com",
         hashed_password=get_password_hash("password123"),
         display_name="Test User",
+        vault_salt="a" * 64,
         is_active=True
     )
     db.add(user)

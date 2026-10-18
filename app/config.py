@@ -36,6 +36,16 @@ class Settings(BaseSettings):
     varman_admin_password: str = ""
     varman_admin_display_name: str = "Operator"
 
+    # ── SMTP & Password Reset ──────────────────────────────────────────────
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    app_env: str = "production"
+    dev_print_otp: bool = False
+    reveal_unregistered_email: bool = True
+
     # ── Upload Limits ──────────────────────────────────────────────────────
     max_upload_files: int = 10
     max_upload_bytes: int = 15 * 1024 * 1024  # 15 MB

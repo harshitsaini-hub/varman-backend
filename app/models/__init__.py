@@ -17,5 +17,7 @@ class Base(DeclarativeBase):
 
 from app.models.user import User  # noqa: E402, F401
 from app.models.protected_image import ProtectedImage  # noqa: E402, F401
+from app.models.password_reset import PasswordResetOTP  # noqa: E402, F401
 
-__all__ = ["Base", "User", "ProtectedImage"]
+__all__ = ["Base", "User", "ProtectedImage", "PasswordResetOTP"]
+
