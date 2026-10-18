@@ -48,6 +48,10 @@ class EvaluationEngine:
 
     def _init_reproducible_detector(self):
         """Initialize fixed, deterministic YuNet detector for reproducible landmark alignment metrics."""
+        if not os.path.exists(self.yunet_path):
+            alt_path = os.path.join(settings.base_dir, "weights", "face_detection_yunet_2023mar.onnx")
+            if os.path.exists(alt_path):
+                self.yunet_path = alt_path
         if os.path.exists(self.yunet_path) and hasattr(cv2, "FaceDetectorYN"):
             try:
                 self.reproducible_detector = cv2.FaceDetectorYN.create(

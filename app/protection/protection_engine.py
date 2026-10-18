@@ -75,6 +75,10 @@ class ProtectionEngine:
 
     def _init_yunet(self):
         """Lazy load YuNet face detector if ONNX file is present."""
+        if not os.path.exists(self.yunet_path):
+            alt_path = os.path.join(settings.base_dir, "weights", "face_detection_yunet_2023mar.onnx")
+            if os.path.exists(alt_path):
+                self.yunet_path = alt_path
         if os.path.exists(self.yunet_path) and hasattr(cv2, "FaceDetectorYN"):
             try:
                 self.yunet_detector = cv2.FaceDetectorYN.create(
