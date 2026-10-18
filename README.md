@@ -148,7 +148,81 @@ pytest --maxfail=1 --timeout=60 tests/
 
 ---
 
-## 7. Known Limitations & Research Boundary
+## 7. Technology Stack
+
+Built strictly from verified repository configurations, package manifests (`requirements.txt`, `package.json`), and Docker deployment definitions:
+
+### Frontend Client & Zero-Knowledge Vault
+- **Framework & Runtime:** React 19 (`react`, `react-dom`) with modern Functional Components & Hooks.
+- **Build Tooling:** Vite 8 (`@vitejs/plugin-react`) with fast ESM HMR and tree-shaken rollups.
+- **Client Routing:** React Router 7 (`react-router-dom`) with guarded private routes.
+- **Styling & Motion:** Tailwind CSS, Lucide React icons (`lucide-react`), and interactive WebGL canvas shaders (`ogl`).
+- **Client-Side Cryptography:** Web Crypto API (`window.crypto.subtle`):
+  - PBKDF2 (SHA-256, 100,000 iterations) derives an ephemeral 256-bit symmetric encryption key from the user's password and persistent `vault_salt`.
+  - AES-256-GCM authenticated encryption and decryption for local media protection.
+- **Storage & State:**
+  - `sessionStorage`: Ephemeral CryptoKey retention across tab reloads (keys never touch disk or backend).
+  - IndexedDB: Local encrypted vault storage caching encrypted ciphertext blobs.
+- **API Communication:** Axios (`axios`) with request interceptors for JWT Bearer token injection and response interceptors for graceful 401 session recovery.
+- **Feedback & Notifications:** React Hot Toast (`react-hot-toast`).
+
+### Backend Service Architecture
+- **Web Framework:** FastAPI 0.115.6 with ASGI runner Uvicorn 0.34.0.
+- **Database & Async ORM:** SQLAlchemy 2.0 (AsyncIO engine) with cross-backend support:
+  - SQLite via `aiosqlite` (default local & container-ephemeral storage)
+  - PostgreSQL via `asyncpg` (recommended production persistent storage)
+  - Automatic declarative table bootstrap on startup via `Base.metadata.create_all`.
+- **Authentication & Security:**
+  - OAuth2 Password Bearer flow.
+  - JWT Access & Refresh Tokens (`python-jose` with cryptography backend).
+  - Password Hashing: Passlib with Bcrypt (`bcrypt==3.2.2`).
+  - OTP Verification: Constant-time comparison (`hmac.compare_digest`) of HMAC-SHA256 OTP hashes.
+- **Email Delivery:** Python standard library `smtplib` over STARTTLS / SSL with multipart MIME (HTML + plain text fallback) and development console fallback.
+- **Configuration & Validation:** Pydantic Settings 2.7.0, `python-dotenv`, `email-validator`.
+- **Image Processing & Vision:** OpenCV (`cv2`), Pillow (PIL), NumPy, SciPy, imagehash.
+
+### Adversarial ML & Protection Engine
+- **Deep Learning Framework:** PyTorch 2.2+ (CPU-optimized build in Docker, CUDA supported).
+- **Optimization Algorithm:** Expectation-over-Transformations Projected Gradient Descent (EOT-PGD).
+- **Differentiable JPEG Simulation:** PyTorch 8x8 block Discrete Cosine Transform (DCT) & Inverse DCT with differentiable quantization matrices (Q50–Q95).
+- **Surrogate Vision Models:**
+  - FaceNet: `InceptionResnetV1` (CASIA-WebFace pretrained via `facenet-pytorch`).
+  - ArcFace: `ResNet-50` (`w600k_r50` backbone via ONNX Runtime 1.18+).
+  - MobileFaceNet & SFace: Held-out evaluation backbones.
+- **Face Localization & Alignment:** MTCNN landmark detection with affine warping to canonical $112 \times 112$ geometry.
+- **Compositing:** Smooth elliptical feathering and paste-aware gradient masking.
+- **Evaluation Metrics:** Scikit-learn, Scikit-image (SSIM Definition B, PSNR).
+
+### Deployment & Cloud Infrastructure
+- **Containerization:** Docker with `python:3.10-slim` base, non-root write permissions on `/code`, and PyTorch CPU-only wheels for lean image sizes.
+- **Cloud Hosting:** Hugging Face Spaces (Docker SDK), serving Uvicorn on `0.0.0.0:8000`.
+- **Persistence Model:** Containers run statelessly on free-tier compute. SQLite databases are ephemeral unless mounted to persistent storage or configured with an external managed PostgreSQL database URL (`DATABASE_URL`).
+
+---
+
+## 8. Authentication & Password Recovery Workflow
+
+Varman provides self-contained authentication and an encrypted password reset pipeline:
+
+1. **Atomic Registration (`POST /api/auth/register`):**
+   - Atomically registers the user, generates a unique 64-character hexadecimal `vault_salt`, hashes the password with bcrypt, and returns an access token and `vault_salt` with `201 Created`.
+   - Prevents duplicate registration with `409 Conflict`.
+2. **Forgot Password OTP Request (`POST /api/auth/forgot-password/request`):**
+   - Generates a cryptographically secure 6-digit one-time password via `secrets.randbelow(1000000)`.
+   - Hashes the OTP using HMAC-SHA256 keyed with `JWT_SECRET` before persisting to `password_reset_otps` (raw OTP is never stored).
+   - Enforces a 60-second cooldown, 3 requests/hour limit per email, and 10 requests/hour limit per IP address.
+   - Configurable account enumeration protection via `REVEAL_UNREGISTERED_EMAIL` (`False` returns a generic 200 response; `True` returns 404).
+   - Dispatches reset instructions via SMTP with STARTTLS.
+   - For technical schema details and error codes, see [`docs/FORGOT_PASSWORD_API.md`](docs/FORGOT_PASSWORD_API.md).
+3. **Password Reset (`POST /api/auth/forgot-password/reset`):**
+   - Compares the submitted OTP using constant-time `hmac.compare_digest`.
+   - Locks out after 5 consecutive failed attempts to thwart brute-force attacks.
+   - Preserves `vault_salt` so user identity remains intact.
+   - **Important Vault Notice:** Because vault media is encrypted on the client side using keys derived from the user's password, resetting the account password means previously encrypted vault images cannot be decrypted unless the previous password is known.
+
+---
+
+## 9. Known Limitations & Research Boundary
 
 1. **Human Evaluation Sample Size:** Visual conspicuity ratings are based on 10 standardized source-image groups evaluated by a single expert evaluator under consistent display conditions.
 2. **SSIM Decoupling:** Structural Similarity (SSIM Definition B: fixed canonical face mask $\ge 0.10$ on the aligned 112 crop, compared against the uncompressed source) does not strictly track human visibility rankings. For example, F0 exhibits higher SSIM than F5 (0.901 vs 0.884), yet both can exhibit clearly perceptible patterns depending on individual skin texture.
@@ -158,7 +232,7 @@ pytest --maxfail=1 --timeout=60 tests/
 
 ---
 
-## 8. Historical Documentation
+## 10. Historical Documentation
 
 For exhaustive technical background, failure analyses, mathematical formulations, and reproduction logs, consult the companion research monograph:
 - **Full History Document (125 Pages):** [`Varman_Research_History.pdf`](docs/Varman_Research_History.pdf)

@@ -3,6 +3,7 @@
 ## Security & Privacy Rules
 
 - **Zero Credentials in Git:** Never commit or print passwords, password hashes (bcrypt, argon2, pbkdf2), cryptographic salts, tokens, database files (`*.db`, `*.sqlite`, `*.sqlite3`), or personal email addresses.
+- **Password Reset & OTP Security:** OTPs are stored strictly as HMAC-SHA256 hashes, verified in constant time, and rate-limited. Never log or commit raw OTPs or SMTP credentials. Consult [docs/FORGOT_PASSWORD_API.md](docs/FORGOT_PASSWORD_API.md).
 - **Environment & Author Identity:** All secrets and credentials must be supplied exclusively via environment variables. All commits must use the official GitHub no-reply address (`@users.noreply.github.com`).
 - **Pre-Push Gate:** Always run the repository hygiene test before every push:
   ```bash

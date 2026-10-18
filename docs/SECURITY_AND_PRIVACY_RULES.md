@@ -21,6 +21,13 @@ This repository enforces strict security and privacy standards to protect develo
 4. **Never Print or Paste Secrets in Logs or Tooling:**
    - Automated scripts, CI workflows, and AI assistants must never echo, log, print, or paste credentials, salts, tokens, or hashes in terminal output or documentation reports.
 
+5. **Password Reset & OTP Security:**
+   - Raw OTP codes must **never** be stored in plaintext in the database; all OTPs must be hashed via HMAC-SHA256 keyed with `JWT_SECRET`.
+   - Verification must strictly employ constant-time comparison (`hmac.compare_digest`) to prevent timing side-channel attacks.
+   - Enforce multi-tier rate limits (60-second cooldown, 3/hr/email, 10/hr/IP) and a strict 5-attempt brute-force lockout threshold.
+   - In production environments, generic `HTTP 200` responses must be returned for unregistered addresses (`REVEAL_UNREGISTERED_EMAIL=False`) to thwart user enumeration.
+   - Never echo or log OTP values or SMTP credentials in production logs or automated reports.
+
 ## Pre-Push Verification
 
 Before pushing any commit or branch to remote, verify repository hygiene:
