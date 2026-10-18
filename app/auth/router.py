@@ -135,6 +135,7 @@ def get_client_ip(request: Request) -> str:
     return ""
 
 
+@router.post("/forgot-password", response_model=schemas.MessageResponse)
 @router.post("/forgot-password/request", response_model=schemas.MessageResponse)
 async def request_password_reset(
     payload: schemas.ForgotPasswordRequest,
