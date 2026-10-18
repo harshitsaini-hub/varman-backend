@@ -9,12 +9,19 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
+def is_smtp_configured() -> bool:
+    """Check if SMTP credentials and host are fully configured."""
+    return bool(settings.smtp_host and settings.smtp_user and settings.smtp_password)
+
+
 def send_password_reset_email(to_email: str, otp: str) -> None:
     """Send a 6-digit password reset code via SMTP with STARTTLS.
 
     If SMTP is unconfigured:
-      - In development with DEV_PRINT_OTP=true, prints OTP to console for local debugging.
-      - Otherwise, raises HTTP 503 'Email service not configured'.
+      - If APP_ENV is production OR DEV_PRINT_OTP is not explicitly true:
+        raises HTTP 503 'Email service not configured'. Never prints the OTP in production.
+      - If APP_ENV is not production AND DEV_PRINT_OTP is explicitly true:
+        prints OTP to console for local debugging.
     """
     smtp_host = settings.smtp_host
     smtp_port = settings.smtp_port
@@ -22,16 +29,20 @@ def send_password_reset_email(to_email: str, otp: str) -> None:
     smtp_password = settings.smtp_password
     smtp_from = settings.smtp_from or smtp_user or "noreply@varman.ai"
 
-    # Check if SMTP credentials are provided
-    if not smtp_user or not smtp_password:
-        if settings.app_env.lower() == "development" and settings.dev_print_otp:
-            logger.info("[DEV ONLY] Password reset OTP for %s: %s", to_email, otp)
-            return
-        logger.warning("[Mailer] SMTP credentials not configured. Cannot send password reset email.")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Email service not configured",
-        )
+    smtp_configured = is_smtp_configured()
+    is_prod = settings.app_env.lower() == "production"
+
+    # Enforce configuration check
+    if not smtp_configured:
+        if is_prod or not settings.dev_print_otp:
+            logger.warning("[Mailer] SMTP credentials not configured. Cannot send password reset email.")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Email service not configured",
+            )
+        # Non-production with DEV_PRINT_OTP explicitly True
+        logger.info("[DEV ONLY] Password reset OTP for %s: %s", to_email, otp)
+        return
 
     msg = EmailMessage()
     msg["Subject"] = "Varman Password Reset Code"

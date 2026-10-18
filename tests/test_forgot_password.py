@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
@@ -333,3 +334,116 @@ async def test_expired_otp_fails(
     )
     assert res.status_code == 400
     assert "Password reset code has expired" in res.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_unconfigured_smtp_returns_503(
+    client: AsyncClient, test_user: User, caplog
+):
+    """When SMTP is unconfigured, return 503 'Email service not configured' and never print OTP in prod."""
+    orig_host = settings.smtp_host
+    orig_user = settings.smtp_user
+    orig_pass = settings.smtp_password
+    orig_env = settings.app_env
+    orig_dev_print = settings.dev_print_otp
+    user_email = test_user.email
+    caplog.set_level(logging.INFO)
+
+    try:
+        # Ensure SMTP is unconfigured
+        settings.smtp_user = ""
+        settings.smtp_password = ""
+
+        # Case 1: production and dev_print_otp=False -> 503
+        settings.app_env = "production"
+        settings.dev_print_otp = False
+        res1 = await client.post(
+            "/api/auth/forgot-password/request",
+            json={"email": user_email},
+        )
+        assert res1.status_code == 503
+        assert res1.json()["detail"] == "Email service not configured"
+
+        # Case 2: production and dev_print_otp=True (simulate prod misconfiguration)
+        # MUST STILL return 503 and NEVER print OTP in production
+        settings.app_env = "production"
+        settings.dev_print_otp = True
+        caplog.clear()
+        res2 = await client.post(
+            "/api/auth/forgot-password/request",
+            json={"email": user_email},
+        )
+        assert res2.status_code == 503
+        assert res2.json()["detail"] == "Email service not configured"
+        assert "[DEV ONLY]" not in caplog.text
+
+        # Case 3: development and dev_print_otp=False -> 503
+        settings.app_env = "development"
+        settings.dev_print_otp = False
+        res3 = await client.post(
+            "/api/auth/forgot-password/request",
+            json={"email": user_email},
+        )
+        assert res3.status_code == 503
+        assert res3.json()["detail"] == "Email service not configured"
+
+        # Case 4: development and dev_print_otp=True explicitly -> allowed with dev print
+        settings.app_env = "development"
+        settings.dev_print_otp = True
+        caplog.clear()
+        res4 = await client.post(
+            "/api/auth/forgot-password/request",
+            json={"email": user_email},
+        )
+        assert res4.status_code == 200
+        assert "[DEV ONLY]" in caplog.text
+
+    finally:
+        settings.smtp_host = orig_host
+        settings.smtp_user = orig_user
+        settings.smtp_password = orig_pass
+        settings.app_env = orig_env
+        settings.dev_print_otp = orig_dev_print
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_ip_rate_limiting_via_x_forwarded_for(
+    client: AsyncClient, test_user: User, db: AsyncSession
+):
+    """Derive client IP from first value of X-Forwarded-For and enforce 10/hr rate limit."""
+    target_ip = "203.0.113.195"
+    different_ip = "198.51.100.77"
+    now_utc = datetime.now(timezone.utc)
+
+    # Pre-seed 10 OTP requests from target_ip created within the last 30 minutes
+    for i in range(10):
+        dummy_record = PasswordResetOTP(
+            user_id=test_user.id,
+            email=f"dummy{i}@example.com",
+            request_ip=target_ip,
+            otp_hash=f"hash{i}" * 8,
+            expires_at=now_utc + timedelta(minutes=10),
+            created_at=now_utc - timedelta(minutes=15),
+            attempts=0,
+        )
+        db.add(dummy_record)
+    await db.commit()
+
+    with patch("app.auth.mailer.send_password_reset_email"):
+        # Request with X-Forwarded-For where first value matches target_ip -> blocked by IP rate limit
+        res_blocked = await client.post(
+            "/api/auth/forgot-password/request",
+            json={"email": test_user.email},
+            headers={"x-forwarded-for": f"{target_ip}, 10.0.0.1"},
+        )
+        assert res_blocked.status_code == 429
+        assert "Too many requests from this network" in res_blocked.json()["detail"]
+
+        # Request from different IP succeeds (first entry in X-Forwarded-For chain)
+        res_allowed = await client.post(
+            "/api/auth/forgot-password/request",
+            json={"email": test_user.email},
+            headers={"x-forwarded-for": f"{different_ip}, 10.0.0.1"},
+        )
+        assert res_allowed.status_code == 200
+

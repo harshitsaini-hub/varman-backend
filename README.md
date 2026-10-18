@@ -158,7 +158,7 @@ Built strictly from verified repository configurations, package manifests (`requ
 - **Client Routing:** React Router 7 (`react-router-dom`) with guarded private routes.
 - **Styling & Motion:** Tailwind CSS, Lucide React icons (`lucide-react`), and interactive WebGL canvas shaders (`ogl`).
 - **Client-Side Cryptography:** Web Crypto API (`window.crypto.subtle`):
-  - PBKDF2 (SHA-256, 100,000 iterations) derives an ephemeral 256-bit symmetric encryption key from the user's password and persistent `vault_salt`.
+  - PBKDF2 (SHA-256, 600,000 iterations) derives an ephemeral 256-bit symmetric encryption key from the user's password and persistent `vault_salt`.
   - AES-256-GCM authenticated encryption and decryption for local media protection.
 - **Storage & State:**
   - `sessionStorage`: Ephemeral CryptoKey retention across tab reloads (keys never touch disk or backend).
@@ -210,9 +210,9 @@ Varman provides self-contained authentication and an encrypted password reset pi
 2. **Forgot Password OTP Request (`POST /api/auth/forgot-password/request`):**
    - Generates a cryptographically secure 6-digit one-time password via `secrets.randbelow(1000000)`.
    - Hashes the OTP using HMAC-SHA256 keyed with `JWT_SECRET` before persisting to `password_reset_otps` (raw OTP is never stored).
-   - Enforces a 60-second cooldown, 3 requests/hour limit per email, and 10 requests/hour limit per IP address.
-   - Configurable account enumeration protection via `REVEAL_UNREGISTERED_EMAIL` (`False` returns a generic 200 response; `True` returns 404).
-   - Dispatches reset instructions via SMTP with STARTTLS.
+   - Enforces a 60-second cooldown, 3 requests/hour limit per email, and 10 requests/hour limit per IP address (derived from the first value in `X-Forwarded-For` when behind a reverse proxy).
+   - If SMTP is unconfigured in production (or without explicit dev flags), returns `503 Service Unavailable` with `detail="Email service not configured"` and never prints the OTP.
+   - Dispatches reset instructions via SMTP with STARTTLS (note: `SMTP_FROM` should equal `SMTP_USER` for Gmail and authenticated relays).
    - For technical schema details and error codes, see [`docs/FORGOT_PASSWORD_API.md`](docs/FORGOT_PASSWORD_API.md).
 3. **Password Reset (`POST /api/auth/forgot-password/reset`):**
    - Compares the submitted OTP using constant-time `hmac.compare_digest`.

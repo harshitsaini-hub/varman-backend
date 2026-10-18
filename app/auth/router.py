@@ -115,6 +115,26 @@ async def login(
     return {"access_token": access_token, "token_type": "bearer", "vault_salt": user.vault_salt}
 
 
+def get_client_ip(request: Request) -> str:
+    """Derive client IP from X-Forwarded-For header or direct connection address.
+
+    When running behind a trusted reverse proxy (such as the Hugging Face Spaces
+    reverse proxy), the original client IP is provided as the first value in the
+    comma-separated X-Forwarded-For header chain.
+
+    SECURITY NOTE: Deriving client IP from X-Forwarded-For is ONLY trustworthy
+    when the application is deployed behind a trusted reverse proxy that strips or
+    sanitizes client-supplied headers. If exposed directly to the internet without
+    a proxy, clients can spoof this header.
+    """
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client and request.client.host:
+        return request.client.host
+    return ""
+
+
 @router.post("/forgot-password/request", response_model=schemas.MessageResponse)
 async def request_password_reset(
     payload: schemas.ForgotPasswordRequest,
@@ -122,9 +142,7 @@ async def request_password_reset(
     db: AsyncSession = Depends(get_db)
 ):
     """Request a 6-digit password reset OTP with rate limiting."""
-    client_ip = request.headers.get("x-forwarded-for") or (request.client.host if request.client else "")
-    if "," in client_ip:
-        client_ip = client_ip.split(",")[0].strip()
+    client_ip = get_client_ip(request)
 
     now_utc = datetime.now(timezone.utc)
 
@@ -191,10 +209,15 @@ async def request_password_reset(
         attempts=0,
     )
     db.add(otp_record)
-    await db.commit()
 
     # ── Send Email ───────────────────────────────────────────────────────
-    mailer.send_password_reset_email(user.email, otp)
+    try:
+        mailer.send_password_reset_email(user.email, otp)
+    except Exception:
+        await db.rollback()
+        raise
+
+    await db.commit()
     return {"message": "Password reset code sent successfully. Please check your inbox."}
 
 
