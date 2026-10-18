@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+pytest.importorskip("benchmarks.evaluate_face_models")
 from benchmarks.evaluate_face_models import (
     compute_paired_proportion_difference_ci,
     compute_single_proportion_ci,
