@@ -14,7 +14,7 @@ class UserBase(BaseModel):
     display_name: str = Field(default="", max_length=100)
 
 class UserCreate(UserBase):
-    password: str = Field(min_length=8)
+    password: str = Field(min_length=8, max_length=72)
 
 class UserResponse(UserBase):
     id: uuid.UUID
@@ -33,7 +33,7 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     email: EmailStr
     otp: str = Field(min_length=6, max_length=6)
-    new_password: str = Field(min_length=8)
+    new_password: str = Field(min_length=8, max_length=72)
 
 
 class MessageResponse(BaseModel):

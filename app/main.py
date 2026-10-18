@@ -70,6 +70,41 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # ── Exception Handlers ──────────────────────────────────────────────
+    from fastapi.exceptions import RequestValidationError
+    from fastapi.responses import JSONResponse
+    from fastapi import Request, status
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        parsed_errors = []
+        for err in exc.errors():
+            loc = err.get("loc", ())
+            field = str(loc[-1]) if loc else "request"
+            msg = err.get("msg", "Validation error")
+            if msg.startswith("Value error, "):
+                msg = msg[len("Value error, "):]
+            parsed_errors.append({"field": field, "message": msg})
+
+        # Log ONLY field names and error types, never user-submitted values
+        log_items = [
+            f"{e.get('loc', ())[-1] if e.get('loc') else 'request'}:{e.get('type', 'unknown')}"
+            for e in exc.errors()
+        ]
+        logger.warning("[Validation] Validation error on fields: %s", ", ".join(log_items))
+
+        first_field = parsed_errors[0]["field"] if parsed_errors else "request"
+        first_msg = parsed_errors[0]["message"] if parsed_errors else "Invalid request parameters"
+        detail_msg = f"{first_field}: {first_msg}"
+
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={
+                "detail": detail_msg,
+                "errors": parsed_errors,
+            },
+        )
+
     # ── Routers ─────────────────────────────────────────────────────────
     from app.auth.router import router as auth_router
     from app.routes.images import router as images_router
