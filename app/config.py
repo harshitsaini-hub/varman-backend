@@ -36,7 +36,10 @@ class Settings(BaseSettings):
     varman_admin_password: str = ""
     varman_admin_display_name: str = "Operator"
 
-    # ── SMTP & Password Reset ──────────────────────────────────────────────
+    # ── Email Delivery (Brevo HTTPS / SMTP) ────────────────────────────────
+    email_provider: str = ""  # "brevo" or "smtp"
+    brevo_api_key: str = ""
+    email_from: str = ""      # Verified sender email for Brevo / SMTP fallback
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587
     smtp_user: str = ""

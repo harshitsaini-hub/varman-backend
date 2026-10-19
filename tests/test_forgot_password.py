@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
+import httpx
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -446,4 +447,170 @@ async def test_forgot_password_ip_rate_limiting_via_x_forwarded_for(
             headers={"x-forwarded-for": f"{different_ip}, 10.0.0.1"},
         )
         assert res_allowed.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_brevo_success_sends_single_post_and_logs_no_secrets(
+    test_user: User, caplog
+):
+    """Brevo success sends exactly 1 POST to Brevo API with api-key header, valid JSON, and no leaked secrets."""
+    from app.auth import mailer
+
+    orig_provider = settings.email_provider
+    orig_key = settings.brevo_api_key
+    orig_from = settings.email_from
+    test_api_key = "mock-secret-key-12345"
+    test_from_email = "mailer@varman.ai"
+    test_otp = "852963"
+
+    try:
+        settings.email_provider = "brevo"
+        settings.brevo_api_key = test_api_key
+        settings.email_from = test_from_email
+
+        caplog.clear()
+        caplog.set_level(logging.INFO)
+
+        mock_resp = httpx.Response(201, json={"messageId": "mock-msg-id-1"})
+        with patch("httpx.Client.post", return_value=mock_resp) as mock_post:
+            mailer.send_password_reset_email(test_user.email, test_otp)
+
+            assert mock_post.call_count == 1
+            call_url = mock_post.call_args[0][0]
+            call_kwargs = mock_post.call_args[1]
+
+            assert call_url == "https://api.brevo.com/v3/smtp/email"
+            assert call_kwargs["headers"]["api-key"] == test_api_key
+            assert call_kwargs["headers"]["content-type"] == "application/json"
+            assert call_kwargs["headers"]["accept"] == "application/json"
+
+            json_body = call_kwargs["json"]
+            assert json_body["sender"] == {"name": "Varman", "email": test_from_email}
+            assert json_body["to"] == [{"email": test_user.email}]
+            assert json_body["subject"] == "Varman Password Reset Code"
+            assert test_otp in json_body["htmlContent"]
+            assert test_otp in json_body["textContent"]
+
+        # Ensure no secrets or emails in logs
+        assert test_api_key not in caplog.text
+        assert test_otp not in caplog.text
+        assert test_user.email not in caplog.text
+        assert "[Mailer] Password reset email sent successfully via Brevo" in caplog.text
+
+    finally:
+        settings.email_provider = orig_provider
+        settings.brevo_api_key = orig_key
+        settings.email_from = orig_from
+
+
+@pytest.mark.asyncio
+async def test_brevo_failure_and_timeout_returns_503_and_leaves_no_otp_row(
+    client: AsyncClient, test_user: User, db: AsyncSession
+):
+    """When Brevo fails or times out, return 503 'Failed to send email' and leave no row in password_reset_otps."""
+    orig_provider = settings.email_provider
+    orig_key = settings.brevo_api_key
+    orig_from = settings.email_from
+
+    try:
+        settings.email_provider = "brevo"
+        settings.brevo_api_key = "mock-secret-key-12345"
+        settings.email_from = "mailer@varman.ai"
+        user_id = test_user.id
+        user_email = test_user.email
+
+        # Case 1: HTTP error response (e.g. 500 from Brevo)
+        mock_err_resp = httpx.Response(500, text="Internal Server Error")
+        with patch("httpx.Client.post", return_value=mock_err_resp):
+            res_fail = await client.post(
+                "/api/auth/forgot-password/request",
+                json={"email": user_email},
+            )
+            assert res_fail.status_code == 503
+            assert res_fail.json()["detail"] == "Failed to send email"
+
+        # Verify no OTP record was persisted
+        stmt = select(PasswordResetOTP).where(PasswordResetOTP.user_id == user_id)
+        assert (await db.execute(stmt)).first() is None
+
+        # Case 2: Timeout exception (network hang)
+        with patch("httpx.Client.post", side_effect=httpx.TimeoutException("Connection timed out")):
+            res_timeout = await client.post(
+                "/api/auth/forgot-password/request",
+                json={"email": user_email},
+            )
+            assert res_timeout.status_code == 503
+            assert res_timeout.json()["detail"] == "Failed to send email"
+
+        # Verify still no OTP record persisted
+        assert (await db.execute(stmt)).first() is None
+
+    finally:
+        settings.email_provider = orig_provider
+        settings.brevo_api_key = orig_key
+        settings.email_from = orig_from
+
+
+def test_email_provider_precedence(test_user: User):
+    """Verify provider choice precedence: Brevo when configured, SMTP when configured, 503 when neither."""
+    from fastapi import HTTPException
+    from app.auth import mailer
+
+    orig_provider = settings.email_provider
+    orig_key = settings.brevo_api_key
+    orig_from = settings.email_from
+    orig_smtp_host = settings.smtp_host
+    orig_smtp_user = settings.smtp_user
+    orig_smtp_pass = settings.smtp_password
+    orig_app_env = settings.app_env
+    orig_dev_print = settings.dev_print_otp
+
+    try:
+        # 1. Brevo configured (even if SMTP is also configured) -> calls _send_brevo
+        settings.email_provider = "brevo"
+        settings.brevo_api_key = "mock-brevo-key"
+        settings.email_from = "noreply@varman.ai"
+        settings.smtp_user = "user@example.com"
+        settings.smtp_password = "smtppassword"
+
+        with patch.object(mailer, "_send_brevo") as mock_b, patch.object(mailer, "_send_smtp") as mock_s:
+            mailer.send_password_reset_email(test_user.email, "112233")
+            mock_b.assert_called_once_with(test_user.email, "112233")
+            mock_s.assert_not_called()
+
+        # 2. Brevo NOT configured, but SMTP configured -> calls _send_smtp
+        settings.email_provider = ""
+        settings.brevo_api_key = ""
+        settings.smtp_host = "smtp.gmail.com"
+        settings.smtp_user = "user@example.com"
+        settings.smtp_password = "smtppassword"
+
+        with patch.object(mailer, "_send_brevo") as mock_b, patch.object(mailer, "_send_smtp") as mock_s:
+            mailer.send_password_reset_email(test_user.email, "445566")
+            mock_s.assert_called_once_with(test_user.email, "445566")
+            mock_b.assert_not_called()
+
+        # 3. Neither configured in production -> raises HTTP 503 "Email service not configured"
+        settings.email_provider = ""
+        settings.brevo_api_key = ""
+        settings.smtp_user = ""
+        settings.smtp_password = ""
+        settings.app_env = "production"
+        settings.dev_print_otp = False
+
+        with pytest.raises(HTTPException) as exc_info:
+            mailer.send_password_reset_email(test_user.email, "778899")
+        assert exc_info.value.status_code == 503
+        assert exc_info.value.detail == "Email service not configured"
+
+    finally:
+        settings.email_provider = orig_provider
+        settings.brevo_api_key = orig_key
+        settings.email_from = orig_from
+        settings.smtp_host = orig_smtp_host
+        settings.smtp_user = orig_smtp_user
+        settings.smtp_password = orig_smtp_pass
+        settings.app_env = orig_app_env
+        settings.dev_print_otp = orig_dev_print
+
 

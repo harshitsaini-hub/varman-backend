@@ -120,3 +120,30 @@ def test_no_unauthorized_emails_in_tracked_text_files():
             violating_emails.append((f, f"read error: {e}"))
 
     assert not violating_emails, f"Unauthorized personal emails found in tracked files: {violating_emails}"
+
+
+def test_no_brevo_keys_in_tracked_text_files():
+    """Fail if any tracked text file contains a Brevo API key (e.g. xkeysib-...)."""
+    tracked = get_tracked_files()
+    brevo_pattern = re.compile(r"\bxkeysib-[a-zA-Z0-9_\-]{16,}\b")
+    violating_files = []
+
+    for f in tracked:
+        if any(f.lower().endswith(ext) for ext in BINARY_EXTENSIONS):
+            continue
+        full_path = REPO_ROOT / f
+        if not full_path.is_file():
+            continue
+        try:
+            with open(full_path, "rb") as fp:
+                raw = fp.read()
+            if b"\x00" in raw:
+                continue  # Skip binary file
+            text = raw.decode("utf-8", errors="ignore")
+            if brevo_pattern.search(text):
+                violating_files.append(f)
+        except Exception as e:
+            violating_files.append(f"{f} (read error: {e})")
+
+    assert not violating_files, f"Brevo API key found in tracked files: {violating_files}"
+

@@ -24,10 +24,20 @@ The Varman Authentication service provides secure user identity management, cred
      > [!NOTE]
      > Deriving the client IP from `X-Forwarded-For` is **only trustworthy** when the service is deployed behind a trusted reverse proxy (e.g. Hugging Face Spaces) that scrubs or overrides incoming client headers. Without a trusted proxy, clients could spoof this header.
 
-4. **Service Availability & Unconfigured SMTP:**
-   - If SMTP is not configured (`SMTP_HOST`, `SMTP_USER`, or `SMTP_PASSWORD` missing) and (`APP_ENV` is `production` OR `DEV_PRINT_OTP` is not explicitly `True`), the endpoint immediately raises `HTTP 503 Service Unavailable` with `detail="Email service not configured"`.
-   - The OTP is **never printed or logged** in production environments.
-   - In non-production environments with `DEV_PRINT_OTP=True` explicitly enabled, the OTP is written to local development server logs for testing.
+4. **Email Delivery Providers & Precedence:**
+   - **Provider Precedence:**
+     1. **Brevo HTTPS API (`EMAIL_PROVIDER=brevo`):** When `EMAIL_PROVIDER=brevo` and both `BREVO_API_KEY` and `EMAIL_FROM` are set, transactional email is dispatched via HTTP POST to `https://api.brevo.com/v3/smtp/email` over TLS port 443 with a 10-second timeout.
+     2. **SMTP Relay:** If Brevo is not configured but SMTP credentials (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`) are present, delivery falls back to the standard library SMTP STARTTLS path.
+     3. **Unconfigured / Development Fallback:** If neither provider is configured:
+        - In production (`APP_ENV=production`) or when `DEV_PRINT_OTP` is not explicitly `True`: raises `HTTP 503 Service Unavailable` with `detail="Email service not configured"`. The OTP is **never printed or logged** in production.
+        - In non-production with `DEV_PRINT_OTP=True`: prints the OTP to local console for developer debugging.
+   - **Cloud Environment Constraint (Hugging Face Spaces):**
+     > [!IMPORTANT]
+     > Hugging Face Spaces blocks outbound TCP traffic on standard SMTP ports (`25`, `465`, `587`). Any attempt to use direct SMTP relays from Spaces containers will encounter connection timeouts (`ETIMEDOUT`). Consequently, `EMAIL_PROVIDER=brevo` (communicating over HTTPS port `443`) or another HTTPS-based transactional API must be used when deploying to Hugging Face Spaces.
+   - **Failure & Rollback Behavior:**
+     - If provider dispatch fails or times out, the service raises `HTTP 503 Service Unavailable` with `detail="Failed to send email"`.
+     - The database transaction rolls back, guaranteeing no pending or orphaned OTP row is committed to `password_reset_otps`.
+     - Log events at INFO confirm email dispatch or failure, but **strictly omit** API keys, OTP codes, and recipient addresses.
 
 5. **Account Enumeration Defense:**
    - Controlled via the `REVEAL_UNREGISTERED_EMAIL` configuration flag:
@@ -207,11 +217,15 @@ Validates the OTP and updates the account password.
 
 | Environment Variable | Type | Default | Description |
 |---|---|---|---|
-| `SMTP_HOST` | `str` | `""` | Hostname of SMTP relay (e.g. `smtp.sendgrid.net`, `smtp.gmail.com`). |
+| `EMAIL_PROVIDER` | `str` | `""` | Selected email provider (`"brevo"` or `"smtp"`). Set to `"brevo"` for HTTPS email on Hugging Face Spaces. |
+| `BREVO_API_KEY` | `str` | `""` | Brevo API key for transactional email endpoint. |
+| `EMAIL_FROM` | `str` | `""` | Verified sender email address for Brevo API / SMTP fallback. |
+| `SMTP_HOST` | `str` | `"smtp.gmail.com"` | Hostname of SMTP relay (e.g. `smtp.sendgrid.net`, `smtp.gmail.com`). |
 | `SMTP_PORT` | `int` | `587` | Port for SMTP service (`587` for STARTTLS, `465` for SSL). |
 | `SMTP_USER` | `str` | `""` | SMTP authentication username. |
 | `SMTP_PASSWORD` | `str` | `""` | SMTP authentication password / app key. |
-| `SMTP_FROM` | `str` | `noreply@varman.ai` | Sender address visible on outgoing emails. Note: `SMTP_FROM` should equal `SMTP_USER` (Gmail and other authenticated relays override other From addresses). |
+| `SMTP_FROM` | `str` | `""` | Sender address visible on outgoing emails. Note: `SMTP_FROM` should equal `SMTP_USER` (Gmail and other authenticated relays override other From addresses). |
 | `APP_ENV` | `str` | `production` | Deployment environment (`production` or `development`). |
 | `DEV_PRINT_OTP` | `bool` | `False` | When `True`, prints OTP to server console (dev only). |
 | `REVEAL_UNREGISTERED_EMAIL`| `bool` | `False` | When `False`, returns generic 200 on missing emails. |
+

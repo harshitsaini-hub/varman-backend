@@ -177,7 +177,7 @@ Built strictly from verified repository configurations, package manifests (`requ
   - JWT Access & Refresh Tokens (`python-jose` with cryptography backend).
   - Password Hashing: Passlib with Bcrypt (`bcrypt==3.2.2`).
   - OTP Verification: Constant-time comparison (`hmac.compare_digest`) of HMAC-SHA256 OTP hashes.
-- **Email Delivery:** Python standard library `smtplib` over STARTTLS / SSL with multipart MIME (HTML + plain text fallback) and development console fallback.
+- **Email Delivery:** HTTPS transactional email delivery via Brevo API (`POST https://api.brevo.com/v3/smtp/email` over TLS port 443 using `httpx`) alongside fallback SMTP relay (`smtplib` over STARTTLS/SSL). The Brevo HTTPS provider is required on hosting platforms like Hugging Face Spaces where outbound SMTP ports (25, 465, 587) are network-blocked.
 - **Configuration & Validation:** Pydantic Settings 2.7.0, `python-dotenv`, `email-validator`.
 - **Image Processing & Vision:** OpenCV (`cv2`), Pillow (PIL), NumPy, SciPy, imagehash.
 
@@ -212,7 +212,7 @@ Varman provides self-contained authentication and an encrypted password reset pi
    - Hashes the OTP using HMAC-SHA256 keyed with `JWT_SECRET` before persisting to `password_reset_otps` (raw OTP is never stored).
    - Enforces a 60-second cooldown, 3 requests/hour limit per email, and 10 requests/hour limit per IP address (derived from the first value in `X-Forwarded-For` when behind a reverse proxy).
    - If SMTP is unconfigured in production (or without explicit dev flags), returns `503 Service Unavailable` with `detail="Email service not configured"` and never prints the OTP.
-   - Dispatches reset instructions via SMTP with STARTTLS (note: `SMTP_FROM` should equal `SMTP_USER` for Gmail and authenticated relays).
+   - Dispatches reset instructions via Brevo HTTPS API (`EMAIL_PROVIDER=brevo`) or standard SMTP relay, falling back to `503 Service Unavailable` with `detail="Email service not configured"` if unconfigured. Using Brevo over HTTPS is required on Hugging Face Spaces where outbound SMTP traffic is blocked.
    - For technical schema details and error codes, see [`docs/FORGOT_PASSWORD_API.md`](docs/FORGOT_PASSWORD_API.md).
 3. **Password Reset (`POST /api/auth/forgot-password/reset`):**
    - Compares the submitted OTP using constant-time `hmac.compare_digest`.
