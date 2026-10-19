@@ -47,11 +47,15 @@ def _send_brevo(to_email: str, otp: str) -> None:
             "<!DOCTYPE html><html><body>"
             f"<p>Your Varman password reset code is <strong>{otp}</strong>. "
             "It expires in 10 minutes. If you did not request it, ignore this email.</p>"
+            "<div style=\"margin-top: 16px; padding: 12px; background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; color: #92400e; font-size: 13px; line-height: 1.5;\">"
+            "<strong>Warning:</strong> Resetting your password will make any images previously stored in your encrypted vault inaccessible, because they are encrypted with your old password."
+            "</div>"
             "</body></html>"
         ),
         "textContent": (
             f"Your Varman password reset code is {otp}. "
-            "It expires in 10 minutes. If you did not request it, ignore this email."
+            "It expires in 10 minutes. If you did not request it, ignore this email.\n\n"
+            "Warning: Resetting your password will make any images previously stored in your encrypted vault inaccessible, because they are encrypted with your old password."
         ),
     }
 
@@ -91,13 +95,17 @@ def _send_smtp(to_email: str, otp: str) -> None:
 
     plain_text = (
         f"Your Varman password reset code is {otp}. "
-        "It expires in 10 minutes. If you did not request it, ignore this email."
+        "It expires in 10 minutes. If you did not request it, ignore this email.\n\n"
+        "Warning: Resetting your password will make any images previously stored in your encrypted vault inaccessible, because they are encrypted with your old password."
     )
     html_content = (
-        f"<!DOCTYPE html><html><body>"
+        "<!DOCTYPE html><html><body>"
         f"<p>Your Varman password reset code is <strong>{otp}</strong>. "
         "It expires in 10 minutes. If you did not request it, ignore this email.</p>"
-        f"</body></html>"
+        "<div style=\"margin-top: 16px; padding: 12px; background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; color: #92400e; font-size: 13px; line-height: 1.5;\">"
+        "<strong>Warning:</strong> Resetting your password will make any images previously stored in your encrypted vault inaccessible, because they are encrypted with your old password."
+        "</div>"
+        "</body></html>"
     )
 
     msg.set_content(plain_text)

@@ -222,6 +222,71 @@ async def request_password_reset(
     return {"message": "Password reset code sent successfully. Please check your inbox."}
 
 
+@router.post("/forgot-password/verify-otp", response_model=schemas.MessageResponse)
+async def verify_otp(
+    payload: schemas.VerifyOTPRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """Verify that the 6-digit OTP entered matches the active code sent to the email holder."""
+    # Find user
+    stmt_user = select(User).where(User.email == payload.email)
+    user = (await db.execute(stmt_user)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found for this email.",
+        )
+
+    # Find latest active OTP for user
+    stmt_otp = (
+        select(PasswordResetOTP)
+        .where(
+            PasswordResetOTP.user_id == user.id,
+            PasswordResetOTP.used_at.is_(None),
+        )
+        .order_by(PasswordResetOTP.created_at.desc())
+    )
+    otp_record = (await db.execute(stmt_otp)).scalars().first()
+    if not otp_record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active password reset request found. Please request a new code.",
+        )
+
+    # Check lock (>= 5 failed attempts)
+    if otp_record.attempts >= 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Too many failed attempts. This code has been invalidated. Please request a new code.",
+        )
+
+    # Check expiration
+    now_utc = datetime.now(timezone.utc)
+    if _ensure_utc(otp_record.expires_at) < now_utc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password reset code has expired. Please request a new code.",
+        )
+
+    # Constant-time HMAC comparison
+    candidate_hash = _compute_otp_hash(payload.otp)
+    if not hmac.compare_digest(otp_record.otp_hash, candidate_hash):
+        otp_record.attempts += 1
+        await db.commit()
+        if otp_record.attempts >= 5:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Too many failed attempts. This code has been invalidated. Please request a new code.",
+            )
+        remaining = 5 - otp_record.attempts
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid password reset code. {remaining} attempt(s) remaining.",
+        )
+
+    return {"message": "Verification code confirmed successfully."}
+
+
 @router.post("/forgot-password/reset", response_model=schemas.MessageResponse)
 async def reset_password(
     payload: schemas.ResetPasswordRequest,

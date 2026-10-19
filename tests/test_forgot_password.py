@@ -490,6 +490,8 @@ async def test_brevo_success_sends_single_post_and_logs_no_secrets(
             assert json_body["subject"] == "Varman Password Reset Code"
             assert test_otp in json_body["htmlContent"]
             assert test_otp in json_body["textContent"]
+            assert "encrypted vault inaccessible" in json_body["htmlContent"]
+            assert "encrypted vault inaccessible" in json_body["textContent"]
 
         # Ensure no secrets or emails in logs
         assert test_api_key not in caplog.text
@@ -612,5 +614,124 @@ def test_email_provider_precedence(test_user: User):
         settings.smtp_password = orig_smtp_pass
         settings.app_env = orig_app_env
         settings.dev_print_otp = orig_dev_print
+
+
+@pytest.mark.asyncio
+async def test_verify_otp_endpoint_success_and_failures(
+    client: AsyncClient, test_user: User, db: AsyncSession
+):
+    """Test verify-otp endpoint validates code without consuming it, locks after 5 attempts, and fails if expired."""
+    sent_codes = []
+
+    def mock_send(to_email, otp):
+        sent_codes.append(otp)
+
+    with patch("app.auth.mailer.send_password_reset_email", side_effect=mock_send):
+        res_req = await client.post(
+            "/api/auth/forgot-password/request",
+            json={"email": test_user.email},
+        )
+        assert res_req.status_code == 200
+
+    assert len(sent_codes) == 1
+    valid_otp = sent_codes[0]
+
+    # 1. Unknown email -> 404
+    res_unknown = await client.post(
+        "/api/auth/forgot-password/verify-otp",
+        json={"email": "nobody_exists@example.com", "otp": valid_otp},
+    )
+    assert res_unknown.status_code == 404
+    assert "No account found" in res_unknown.json()["detail"]
+
+    # 2. Invalid code -> 400 with 4 attempts remaining
+    res_wrong = await client.post(
+        "/api/auth/forgot-password/verify-otp",
+        json={"email": test_user.email, "otp": "000000" if valid_otp != "000000" else "111111"},
+    )
+    assert res_wrong.status_code == 400
+    assert "4 attempt(s) remaining" in res_wrong.json()["detail"]
+
+    # 3. Valid code -> 200 and success message
+    res_valid = await client.post(
+        "/api/auth/forgot-password/verify-otp",
+        json={"email": test_user.email, "otp": valid_otp},
+    )
+    assert res_valid.status_code == 200
+    assert "Verification code confirmed" in res_valid.json()["message"]
+
+    # Ensure OTP is NOT marked used yet
+    stmt = (
+        select(PasswordResetOTP)
+        .where(PasswordResetOTP.user_id == test_user.id)
+        .order_by(PasswordResetOTP.created_at.desc())
+    )
+    record = (await db.execute(stmt)).scalars().first()
+    assert record.used_at is None
+
+    # 4. Now reset password using the same valid code -> 200
+    res_reset = await client.post(
+        "/api/auth/forgot-password/reset",
+        json={
+            "email": test_user.email,
+            "otp": valid_otp,
+            "new_password": "newSecurePassword2026!",
+        },
+    )
+    assert res_reset.status_code == 200
+
+    # 5. After reset, OTP is marked used, so verify-otp fails with 400
+    res_after = await client.post(
+        "/api/auth/forgot-password/verify-otp",
+        json={"email": test_user.email, "otp": valid_otp},
+    )
+    assert res_after.status_code == 400
+    assert "No active password reset request found" in res_after.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_verify_otp_endpoint_lockout_and_expiration(
+    client: AsyncClient, test_user: User, db: AsyncSession
+):
+    """5 failed attempts on verify-otp locks the OTP, and expired OTP returns 400."""
+    sent_codes = []
+
+    def mock_send(to_email, otp):
+        sent_codes.append(otp)
+
+    with patch("app.auth.mailer.send_password_reset_email", side_effect=mock_send):
+        await client.post(
+            "/api/auth/forgot-password/request",
+            json={"email": test_user.email},
+        )
+
+    valid_otp = sent_codes[0]
+    wrong_otp = "000000" if valid_otp != "000000" else "111111"
+
+    # Fail 4 times (attempts 1 to 4)
+    for i in range(1, 5):
+        res = await client.post(
+            "/api/auth/forgot-password/verify-otp",
+            json={"email": test_user.email, "otp": wrong_otp},
+        )
+        assert res.status_code == 400
+        assert f"{5 - i} attempt(s) remaining" in res.json()["detail"]
+
+    # 5th attempt locks it
+    res5 = await client.post(
+        "/api/auth/forgot-password/verify-otp",
+        json={"email": test_user.email, "otp": wrong_otp},
+    )
+    assert res5.status_code == 400
+    assert "Too many failed attempts" in res5.json()["detail"]
+
+    # Even correct OTP is rejected now
+    res_locked = await client.post(
+        "/api/auth/forgot-password/verify-otp",
+        json={"email": test_user.email, "otp": valid_otp},
+    )
+    assert res_locked.status_code == 400
+    assert "Too many failed attempts" in res_locked.json()["detail"]
+
 
 
