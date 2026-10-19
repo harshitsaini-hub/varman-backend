@@ -4,6 +4,7 @@ WORKDIR /code
 
 ENV TORCH_HOME=/tmp/.cache/torch
 ENV HF_HOME=/tmp/.cache/huggingface
+ENV REVEAL_UNREGISTERED_EMAIL=false
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
