@@ -235,11 +235,6 @@ async def verify_otp(
     stmt_user = select(User).where(User.email == payload.email)
     user = (await db.execute(stmt_user)).scalar_one_or_none()
     if not user:
-        if settings.reveal_unregistered_email:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No account found for this email.",
-            )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=NORMALIZED_OTP_ERROR,
@@ -256,11 +251,6 @@ async def verify_otp(
     )
     otp_record = (await db.execute(stmt_otp)).scalars().first()
     if not otp_record:
-        if settings.reveal_unregistered_email:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No active password reset request found. Please request a new code.",
-            )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=NORMALIZED_OTP_ERROR,
@@ -325,11 +315,6 @@ async def reset_password(
     stmt_user = select(User).where(User.email == payload.email)
     user = (await db.execute(stmt_user)).scalar_one_or_none()
     if not user:
-        if settings.reveal_unregistered_email:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No account found for this email.",
-            )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=NORMALIZED_OTP_ERROR,
@@ -346,11 +331,6 @@ async def reset_password(
     )
     otp_record = (await db.execute(stmt_otp)).scalars().first()
     if not otp_record:
-        if settings.reveal_unregistered_email:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No active password reset request found. Please request a new code.",
-            )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=NORMALIZED_OTP_ERROR,

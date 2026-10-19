@@ -295,7 +295,7 @@ async def test_reset_password_success_and_login(
         },
     )
     assert reused.status_code == 400
-    assert "No active password reset request found" in reused.json()["detail"]
+    assert "Invalid or expired password reset code" in reused.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -636,13 +636,13 @@ async def test_verify_otp_endpoint_success_and_failures(
     assert len(sent_codes) == 1
     valid_otp = sent_codes[0]
 
-    # 1. Unknown email -> 404
+    # 1. Unknown email -> 400 Normalized Error (no account enumeration)
     res_unknown = await client.post(
         "/api/auth/forgot-password/verify-otp",
         json={"email": "nobody_exists@example.com", "otp": valid_otp},
     )
-    assert res_unknown.status_code == 404
-    assert "No account found" in res_unknown.json()["detail"]
+    assert res_unknown.status_code == 400
+    assert "Invalid or expired password reset code" in res_unknown.json()["detail"]
 
     # 2. Invalid code -> 400 with 4 attempts remaining
     res_wrong = await client.post(
@@ -686,7 +686,7 @@ async def test_verify_otp_endpoint_success_and_failures(
         json={"email": test_user.email, "otp": valid_otp},
     )
     assert res_after.status_code == 400
-    assert "No active password reset request found" in res_after.json()["detail"]
+    assert "Invalid or expired password reset code" in res_after.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -854,6 +854,72 @@ async def test_account_enumeration_protection_when_disclosure_disabled(
 
     finally:
         settings.reveal_unregistered_email = orig_reveal
+
+
+@pytest.mark.asyncio
+async def test_account_enumeration_protection_when_disclosure_enabled(
+    client: AsyncClient, test_user: User, db: AsyncSession
+):
+    """Even when reveal_unregistered_email=True, /verify-otp and /reset return identical HTTP 400 responses
+    with NORMALIZED_OTP_ERROR for nonexistent accounts vs registered accounts without an active OTP request."""
+    orig_reveal = settings.reveal_unregistered_email
+    settings.reveal_unregistered_email = True
+    try:
+        nonexistent_email = "definitely_nonexistent_enum_target_9999@example.com"
+        initial_hash = test_user.hashed_password
+        expected_msg = "Invalid or expired password reset code. Please request a new code."
+
+        # Case 1: Nonexistent account at /verify-otp and /reset
+        res_v_non = await client.post(
+            "/api/auth/forgot-password/verify-otp",
+            json={"email": nonexistent_email, "otp": "123456"},
+        )
+        res_r_non = await client.post(
+            "/api/auth/forgot-password/reset",
+            json={"email": nonexistent_email, "otp": "123456", "new_password": "HackedPassword1!"},
+        )
+
+        # Case 2: Registered account with NO active reset request at /verify-otp and /reset
+        res_v_no_req = await client.post(
+            "/api/auth/forgot-password/verify-otp",
+            json={"email": test_user.email, "otp": "123456"},
+        )
+        res_r_no_req = await client.post(
+            "/api/auth/forgot-password/reset",
+            json={"email": test_user.email, "otp": "123456", "new_password": "HackedPassword1!"},
+        )
+
+        # Both must return HTTP 400 Bad Request with identical detail
+        assert res_v_non.status_code == 400
+        assert res_v_non.json()["detail"] == expected_msg
+        assert res_r_non.status_code == 400
+        assert res_r_non.json()["detail"] == expected_msg
+
+        assert res_v_no_req.status_code == 400
+        assert res_v_no_req.json()["detail"] == expected_msg
+        assert res_r_no_req.status_code == 400
+        assert res_r_no_req.json()["detail"] == expected_msg
+
+        # Indistinguishable comparison
+        assert res_v_non.status_code == res_v_no_req.status_code
+        assert res_v_non.json() == res_v_no_req.json()
+        assert res_r_non.status_code == res_r_no_req.status_code
+        assert res_r_non.json() == res_r_no_req.json()
+
+        # Password hash remains untouched
+        await db.refresh(test_user)
+        assert test_user.hashed_password == initial_hash
+
+        # User still logs in with original credentials
+        login_res = await client.post(
+            "/api/auth/login",
+            data={"username": test_user.email, "password": "password123"},
+        )
+        assert login_res.status_code == 200
+
+    finally:
+        settings.reveal_unregistered_email = orig_reveal
+
 
 
 
