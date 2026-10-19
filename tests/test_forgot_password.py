@@ -734,4 +734,126 @@ async def test_verify_otp_endpoint_lockout_and_expiration(
     assert "Too many failed attempts" in res_locked.json()["detail"]
 
 
+@pytest.mark.asyncio
+async def test_account_enumeration_protection_when_disclosure_disabled(
+    client: AsyncClient, test_user: User, db: AsyncSession
+):
+    """When reveal_unregistered_email=False, /verify-otp and /reset return identical 400 responses
+    across nonexistent accounts, accounts without OTP, invalid OTP, expired OTP, and locked OTP."""
+    orig_reveal = settings.reveal_unregistered_email
+    settings.reveal_unregistered_email = False
+    try:
+        nonexistent_email = "nonexistent_enum_target@example.com"
+        initial_hash = test_user.hashed_password
+
+        # Case 1: Nonexistent account
+        res_v_non = await client.post(
+            "/api/auth/forgot-password/verify-otp",
+            json={"email": nonexistent_email, "otp": "123456"},
+        )
+        res_r_non = await client.post(
+            "/api/auth/forgot-password/reset",
+            json={"email": nonexistent_email, "otp": "123456", "new_password": "HackedPassword1!"},
+        )
+
+        # Case 2: Registered account with NO active reset request
+        res_v_no_req = await client.post(
+            "/api/auth/forgot-password/verify-otp",
+            json={"email": test_user.email, "otp": "123456"},
+        )
+        res_r_no_req = await client.post(
+            "/api/auth/forgot-password/reset",
+            json={"email": test_user.email, "otp": "123456", "new_password": "HackedPassword1!"},
+        )
+
+        expected_msg = "Invalid or expired password reset code. Please request a new code."
+
+        assert res_v_non.status_code == 400
+        assert res_v_non.json()["detail"] == expected_msg
+        assert res_r_non.status_code == 400
+        assert res_r_non.json()["detail"] == expected_msg
+
+        assert res_v_no_req.status_code == 400
+        assert res_v_no_req.json()["detail"] == expected_msg
+        assert res_r_no_req.status_code == 400
+        assert res_r_no_req.json()["detail"] == expected_msg
+
+        # Request an OTP for test_user
+        sent_codes = []
+        with patch("app.auth.mailer.send_password_reset_email", side_effect=lambda em, o: sent_codes.append(o)):
+            req_res = await client.post(
+                "/api/auth/forgot-password/request",
+                json={"email": test_user.email},
+            )
+            assert req_res.status_code == 200
+
+        valid_otp = sent_codes[0]
+        wrong_otp = "999999" if valid_otp != "999999" else "888888"
+
+        # Case 3: Registered account with active OTP, but wrong code
+        res_v_wrong = await client.post(
+            "/api/auth/forgot-password/verify-otp",
+            json={"email": test_user.email, "otp": wrong_otp},
+        )
+        res_r_wrong = await client.post(
+            "/api/auth/forgot-password/reset",
+            json={"email": test_user.email, "otp": wrong_otp, "new_password": "HackedPassword1!"},
+        )
+        assert res_v_wrong.status_code == 400
+        assert res_v_wrong.json()["detail"] == expected_msg
+        assert res_r_wrong.status_code == 400
+        assert res_r_wrong.json()["detail"] == expected_msg
+
+        # Case 4: Expired OTP
+        stmt = select(PasswordResetOTP).where(PasswordResetOTP.user_id == test_user.id)
+        otp_rec = (await db.execute(stmt)).scalars().first()
+        otp_rec.expires_at = datetime.now(timezone.utc) - timedelta(minutes=5)
+        await db.commit()
+
+        res_v_exp = await client.post(
+            "/api/auth/forgot-password/verify-otp",
+            json={"email": test_user.email, "otp": valid_otp},
+        )
+        res_r_exp = await client.post(
+            "/api/auth/forgot-password/reset",
+            json={"email": test_user.email, "otp": valid_otp, "new_password": "HackedPassword1!"},
+        )
+        assert res_v_exp.status_code == 400
+        assert res_v_exp.json()["detail"] == expected_msg
+        assert res_r_exp.status_code == 400
+        assert res_r_exp.json()["detail"] == expected_msg
+
+        # Case 5: Locked out (attempts >= 5)
+        otp_rec.expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+        otp_rec.attempts = 5
+        await db.commit()
+
+        res_v_lock = await client.post(
+            "/api/auth/forgot-password/verify-otp",
+            json={"email": test_user.email, "otp": valid_otp},
+        )
+        res_r_lock = await client.post(
+            "/api/auth/forgot-password/reset",
+            json={"email": test_user.email, "otp": valid_otp, "new_password": "HackedPassword1!"},
+        )
+        assert res_v_lock.status_code == 400
+        assert res_v_lock.json()["detail"] == expected_msg
+        assert res_r_lock.status_code == 400
+        assert res_r_lock.json()["detail"] == expected_msg
+
+        # Verify that throughout ALL unauthorized attempts, user password hash is completely unchanged!
+        await db.refresh(test_user)
+        assert test_user.hashed_password == initial_hash
+
+        # User can still log in with original credentials
+        login_res = await client.post(
+            "/api/auth/login",
+            data={"username": test_user.email, "password": "password123"},
+        )
+        assert login_res.status_code == 200
+
+    finally:
+        settings.reveal_unregistered_email = orig_reveal
+
+
 
