@@ -9,7 +9,8 @@ from pydantic import BaseModel, Field
 
 class ImageUploadParams(BaseModel):
     """Optional JSON body alongside the multipart file upload."""
-    preset_name: str = Field(default="Balanced", description="Light, Balanced, or Aggressive")
+    mode: str = Field(default="fast", description="Protection mode: 'fast' (CPU) or 'hard' (Server GPU)")
+    preset_name: str = Field(default="Balanced", description="Light, Balanced, Aggressive, or F5")
     enable_grid: bool = Field(default=False, description="Enable optional low-intensity spatial grid")
 
 
@@ -19,6 +20,7 @@ class ImageResponse(BaseModel):
     id: uuid.UUID
     original_filename: str
     status: str
+    mode: str = "fast"
     protection_strength: float = 0.5
     preset_name: str = "Balanced"
     width: int
@@ -48,6 +50,7 @@ class ImageResponse(BaseModel):
 class ImageStatusResponse(BaseModel):
     id: uuid.UUID
     status: str
+    mode: str = "fast"
     ssim_score: float | None = None
     face_ssim_score: float | None = None
     psnr_score: float | None = None

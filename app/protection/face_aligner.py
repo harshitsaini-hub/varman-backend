@@ -47,20 +47,23 @@ def composite_crop_back(
     original_bgr: np.ndarray,
     protected_crop_112: np.ndarray,
     affine_matrix_M: np.ndarray,
+    mask_scale: float = 1.0,
     feather_sigma: float = 4.0,
 ) -> np.ndarray:
     """
     Inverts affine transform M and blends the protected face crop back onto the original photo
-    using an elliptical Gaussian-feathered mask to prevent boundary seams.
+    using an elliptical Gaussian-feathered mask (dynamically scaled by mask_scale) to prevent boundary seams.
     """
     h, w = original_bgr.shape[:2]
     inv_M = cv2.invertAffineTransform(affine_matrix_M)
 
-    # 1. Construct elliptical blending mask in 112x112 space
+    # 1. Construct elliptical blending mask in 112x112 space scaled by mask_scale
     mask_112 = np.zeros((112, 112), dtype=np.float32)
-    # Ellipse covering facial oval (center=56,56; radii=42,50)
-    cv2.ellipse(mask_112, (56, 56), (42, 50), 0, 0, 360, 1.0, -1)
-    mask_112 = cv2.GaussianBlur(mask_112, (15, 15), feather_sigma)
+    rx = int(round(42.0 * mask_scale))
+    ry = int(round(50.0 * mask_scale))
+    cv2.ellipse(mask_112, (56, 56), (rx, ry), 0, 0, 360, 1.0, -1)
+    if feather_sigma > 0:
+        mask_112 = cv2.GaussianBlur(mask_112, (15, 15), feather_sigma)
 
     # 2. Warp protected crop and mask back to original resolution
     warped_prot = cv2.warpAffine(

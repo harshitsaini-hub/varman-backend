@@ -18,7 +18,7 @@ from app.models import Base
 class ProtectedImage(Base):
     """A single image that has been (or is being) protected by Varman.
 
-    Lifecycle:  pending → processing → completed | failed
+    Lifecycle:  pending → processing → completed | failed | cancelled
 
     The ``original_path`` and ``protected_path`` are *server-local*
     filesystem paths under ``settings.storage_dir``.
@@ -49,6 +49,7 @@ class ProtectedImage(Base):
     protected_size_bytes: Mapped[int] = mapped_column(Integer, nullable=True)
 
     # ── Protection parameters ──────────────────────────────────────────
+    mode: Mapped[str] = mapped_column(String(20), nullable=False, default="fast")  # fast | hard
     protection_strength: Mapped[float] = mapped_column(
         Float, nullable=False, default=0.5
     )
@@ -73,7 +74,7 @@ class ProtectedImage(Base):
     # ── Processing state ───────────────────────────────────────────────
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pending"
-    )  # pending | processing | completed | failed
+    )  # pending | processing | completed | failed | cancelled
     error_message: Mapped[str] = mapped_column(Text, nullable=True)
     processing_time_ms: Mapped[int] = mapped_column(Integer, nullable=True)
 
@@ -87,4 +88,4 @@ class ProtectedImage(Base):
     user: Mapped["User"] = relationship(back_populates="images")  # noqa: F821
 
     def __repr__(self) -> str:
-        return f"<ProtectedImage {self.id} status={self.status}>"
+        return f"<ProtectedImage {self.id} status={self.status} mode={self.mode}>"

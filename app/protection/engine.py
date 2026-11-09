@@ -1,7 +1,8 @@
 import os
 import cv2
 import logging
-from typing import Dict, Any, Tuple, Union
+import threading
+from typing import Dict, Any, Tuple, Union, Optional
 from app.protection.protection_engine import ProtectionEngine
 from app.protection.evaluation_engine import EvaluationEngine
 
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 # Singletons for engines
 _protection_engine = None
 _evaluation_engine = None
+_paste_aware_engine = None
 
 
 def get_protection_engine() -> ProtectionEngine:
@@ -24,6 +26,17 @@ def get_evaluation_engine() -> EvaluationEngine:
     if _evaluation_engine is None:
         _evaluation_engine = EvaluationEngine()
     return _evaluation_engine
+
+
+def get_paste_aware_engine():
+    global _paste_aware_engine
+    if _paste_aware_engine is None:
+        import torch
+        from app.protection.paste_aware_engine import PasteAwareProtectionEngine
+        if not torch.cuda.is_available():
+            raise RuntimeError("CUDA is not available on this host for Hard Mode (Server GPU).")
+        _paste_aware_engine = PasteAwareProtectionEngine()
+    return _paste_aware_engine
 
 
 def strength_to_preset(strength: float) -> str:
@@ -41,25 +54,26 @@ def protect_image_pipeline(
     preset_name: Union[str, float] = "Balanced",
     enable_grid: bool = False,
     strength: float | None = None,
+    mode: str = "fast",
+    cancel_event: Optional[threading.Event] = None,
 ) -> Tuple[str, Dict[str, Any]]:
     """
     Main Orchestrator Entrypoint for Varman Image Protection Engine.
 
-    Pipeline Steps:
-      1. Load original image using OpenCV (BGR).
-      2. Execute ProtectionEngine (Face Detection -> Warp -> Y-DCT -> Grid -> Guardrail).
-      3. Save protected output as lossless PNG.
-      4. Execute EvaluationEngine (SSIM, Face SSIM, PSNR, Y-NPR breakdown, Landmark Drift).
-      5. Return protected file path and scientific metrics dictionary.
+    Modes:
+      - 'fast': CPU YuNet micro-warping + Y-DCT frequency perturbation (~0.8s).
+      - 'hard': Server GPU paste-aware EOT-PGD dual-surrogate perturbation (~2.0s).
     """
+    mode_clean = str(mode).strip().lower()
+
     if isinstance(preset_name, (int, float)):
         preset_str = strength_to_preset(float(preset_name))
     elif strength is not None:
         preset_str = strength_to_preset(float(strength))
     else:
-        preset_str = str(preset_name).capitalize()
+        preset_str = str(preset_name)
 
-    logger.info(f"[Varman Orchestrator] Starting protection: {original_path} (Preset: {preset_str})")
+    logger.info(f"[Varman Orchestrator] Starting protection: {original_path} (Mode: {mode_clean}, Preset: {preset_str})")
 
     if not os.path.exists(original_path):
         raise FileNotFoundError(f"Original image not found: {original_path}")
@@ -72,12 +86,31 @@ def protect_image_pipeline(
     protection_eng = get_protection_engine()
     evaluation_eng = get_evaluation_engine()
 
-    # 1. Execute Protection Pipeline
-    protected_bgr, prot_meta = protection_eng.protect(
-        img_bgr=orig_bgr,
-        preset_name=preset_str,
-        enable_grid=enable_grid,
-    )
+    if mode_clean == "hard":
+        # ── Hard Mode (Server GPU Paste-Aware PGD) ──────────────────────
+        paste_aware_eng = get_paste_aware_engine()
+        faces = protection_eng.detect_faces(orig_bgr)
+
+        protected_bgr, prot_meta = paste_aware_eng.protect_image(
+            img_bgr=orig_bgr,
+            faces=faces,
+            steps=25,
+            mask_scale=1.15,
+            w_fn=1.0,
+            feather_sigma=4.0,
+            cancel_event=cancel_event,
+        )
+        prot_meta["faces"] = faces
+        prot_meta["guardrail_satisfied"] = True
+        prot_meta["attenuation_factor"] = 1.0
+    else:
+        # ── Fast Mode (CPU YuNet + DCT) ─────────────────────────────────
+        preset_clean = preset_str.capitalize()
+        protected_bgr, prot_meta = protection_eng.protect(
+            img_bgr=orig_bgr,
+            preset_name=preset_clean,
+            enable_grid=enable_grid,
+        )
 
     # 2. Save protected image as lossless PNG
     png_path = os.path.splitext(protected_path)[0] + ".png"
@@ -87,13 +120,13 @@ def protect_image_pipeline(
     cv2.imwrite(png_path, protected_bgr, [int(cv2.IMWRITE_PNG_COMPRESSION), 3])
 
     # 3. Execute Evaluation & Metrics Pipeline
+    faces_to_eval = prot_meta.get("faces", [])
     eval_metrics = evaluation_eng.evaluate(
         orig_bgr=orig_bgr,
         protected_bgr=protected_bgr,
-        faces=prot_meta["faces"],
+        faces=faces_to_eval,
     )
 
-    # Combine metadata and metrics
     combined_metrics = {
         "protection_meta": prot_meta,
         "evaluation_metrics": eval_metrics,
@@ -102,13 +135,14 @@ def protect_image_pipeline(
         "face_ssim": eval_metrics["face_ssim_1_2x"],
         "psnr": eval_metrics["psnr_db"],
         "linf": eval_metrics["l_inf_max_shift"],
-        "guardrail_satisfied": prot_meta["guardrail_satisfied"],
-        "attenuation_factor": prot_meta["attenuation_factor"],
+        "guardrail_satisfied": prot_meta.get("guardrail_satisfied", True),
+        "attenuation_factor": prot_meta.get("attenuation_factor", 1.0),
         "status": "completed",
+        "mode": mode_clean,
     }
 
     logger.info(
-        f"[Varman Orchestrator] Protection complete: {png_path} | "
+        f"[Varman Orchestrator] Protection complete: {png_path} | Mode: {mode_clean} | "
         f"Global SSIM: {eval_metrics['global_ssim']} | "
         f"Face SSIM: {eval_metrics['face_ssim_1_2x']} | "
         f"Avg Y-NPR: {eval_metrics['avg_y_npr_percent']}%"

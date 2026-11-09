@@ -3,9 +3,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text, update
 
 from app.config import settings
-from app.database import init_db
+from app.database import async_session, init_db
+from app.models.protected_image import ProtectedImage
 
 logger = logging.getLogger("varman")
 
@@ -19,17 +21,15 @@ async def lifespan(app: FastAPI):
     Startup:
       1. Enforce that critical secrets are configured.
       2. Create all database tables (if they don't exist).
-      3. Log readiness.
-
-    Shutdown:
-      (nothing to tear down for now — ONNX models are lazily loaded
-       and garbage-collected automatically)
+      3. Run non-destructive schema migrations (add missing columns if any).
+      4. Recover orphaned in-flight jobs from prior crashes/restarts.
+      5. Log readiness.
     """
     # ── Startup guards ─────────────────────────────────────────────────
     if not settings.jwt_secret or settings.jwt_secret == "change-this-to-a-long-random-string":
         logger.warning(
             "[STARTUP] JWT_SECRET is not set or still at its example value. "
-            "Auth will be insecure.  Set a proper value in .env for production."
+            "Auth will be insecure. Set a proper value in .env for production."
         )
 
     # ── Database bootstrap ─────────────────────────────────────────────
@@ -38,10 +38,42 @@ async def lifespan(app: FastAPI):
     logger.info("[STARTUP] Loaded settings.varman_admin_password length: %d", len(settings.varman_admin_password) if settings.varman_admin_password else 0)
     await init_db()
     logger.info("[STARTUP] Database tables initialised.")
+
+    # ── Schema migration & orphan cleanup ──────────────────────────────
+    try:
+        async with async_session() as db:
+            # 1. SQLite schema migration check for 'mode'
+            try:
+                res = await db.execute(text("PRAGMA table_info(protected_images)"))
+                cols = [row[1] for row in res.fetchall()]
+                if cols and "mode" not in cols:
+                    logger.info("[STARTUP] Adding missing 'mode' column to protected_images table...")
+                    await db.execute(text("ALTER TABLE protected_images ADD COLUMN mode VARCHAR(20) DEFAULT 'fast' NOT NULL"))
+                    await db.commit()
+                    logger.info("[STARTUP] 'mode' column successfully added.")
+            except Exception as e:
+                logger.warning("[STARTUP] Schema migration check notice: %s", e)
+
+            # 2. Cleanup orphaned in-flight tasks from prior server restarts
+            try:
+                stmt = (
+                    update(ProtectedImage)
+                    .where(ProtectedImage.status.in_(["pending", "processing"]))
+                    .values(status="failed", error_message="Interrupted by server restart")
+                )
+                result = await db.execute(stmt)
+                if result.rowcount and result.rowcount > 0:
+                    await db.commit()
+                    logger.info("[STARTUP] Recovered %d orphaned jobs to failed state.", result.rowcount)
+            except Exception as e:
+                logger.warning("[STARTUP] Orphaned job recovery notice: %s", e)
+    except Exception as e:
+        logger.warning("[STARTUP] Database startup recovery notice: %s", e)
+
     logger.info("[STARTUP] Storage dir: %s", settings.storage_dir)
     logger.info("[STARTUP] Device: %s", settings.device)
     logger.info("[STARTUP] Default preset: %s", settings.default_preset)
-    logger.info("[STARTUP] Varman API is ready.")
+    logger.info("[STARTUP] Varman 4.0 API is ready.")
 
     yield  # ── application runs here ───────────────────────────────────
 
@@ -57,7 +89,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Varman API",
         description="Adversarial image protection against AI deepfakes.",
-        version="1.0.0",
+        version="4.0.0",
         lifespan=lifespan,
     )
 
@@ -118,7 +150,7 @@ def create_app() -> FastAPI:
     async def root():
         return {
             "service": "Varman Adversarial Facial Privacy Engine",
-            "version": "3.0.0",
+            "version": "4.0.0",
             "status": "online",
             "docs_url": "/docs",
         }

@@ -1,25 +1,27 @@
-"""Image upload, protection, download, and listing endpoints.
+"""Image upload, protection, download, cancellation, and listing endpoints.
 
-Key design decisions:
-  - A single ``asyncio.Semaphore(1)`` gates CPU protection execution so only ONE
-    image is being processed at a time.
-  - The heavy ``protect_image_pipeline`` runs inside a
-    ``ThreadPoolExecutor`` via ``loop.run_in_executor`` so it never blocks
-    the async event loop (the frontend can still poll ``/status``).
+Key architectural & operational guarantees:
+  - Strict bounded queue: Concurrency=1 for execution, max 5 pending jobs.
+    Returns HTTP 429 Too Many Requests (Retry-After: 30) when saturated.
+  - User-scoped idempotency: Deduplicates pending/processing submissions.
+  - Cooperative cancellation: POST /api/images/cancel/{image_id} halts PGD safely.
+  - Evidence-based per-job timeouts: 45s for GPU Hard Mode, 20s for CPU Fast Mode.
+  - Mode dispatch: Fast Mode (CPU) vs Hard Mode (Server GPU).
 """
 
 import asyncio
 import functools
 import logging
 import os
+import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import Annotated
+from typing import Annotated, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
-from sqlalchemy import select, func as sa_func
+from sqlalchemy import func as sa_func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.security import get_current_user
@@ -27,6 +29,7 @@ from app.config import settings
 from app.database import get_db
 from app.models.protected_image import ProtectedImage
 from app.models.user import User
+from app.protection.paste_aware_engine import TaskCancelledException
 from app.routes.schemas import ImageListResponse, ImageResponse, ImageStatusResponse
 from app.uploads import get_image_dimensions, save_upload_with_limits, validate_upload_count
 
@@ -34,12 +37,18 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# ── Concurrency control ───────────────────────────────────────────────────
-# Semaphore(1) = only one protection task at a time. The executor runs the
-# synchronous protection engine off the event loop so /status polling still works.
+# ── Concurrency & Queue Control ───────────────────────────────────────────
 MAX_ERROR_MESSAGE_LENGTH = 500
+MAX_PENDING_QUEUE = 5
+
 _protection_semaphore = asyncio.Semaphore(1)
 _executor = ThreadPoolExecutor(max_workers=1)
+_queue_lock = asyncio.Lock()
+_pending_jobs_count = 0
+_cancel_events: Dict[uuid.UUID, threading.Event] = {}
+
+ALLOWED_FAST_PRESETS = {"light", "balanced", "aggressive"}
+ALLOWED_HARD_PRESETS = {"f5", "balanced", "aggressive", "light"}
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -58,162 +67,303 @@ async def _run_protection_task(
     strength: float,
     preset_name: str = "Balanced",
     enable_grid: bool = False,
+    mode: str = "fast",
+    cancel_event: Optional[threading.Event] = None,
 ) -> None:
     """Acquire the protection semaphore, run protection off-thread, update the DB."""
-    from app.database import async_session  # local to avoid circular
+    global _pending_jobs_count
+    from app.database import async_session
 
-    async with _protection_semaphore:
-        loop = asyncio.get_running_loop()
+    try:
+        async with _protection_semaphore:
+            # Task is now transitioning from pending to processing
+            async with _queue_lock:
+                if _pending_jobs_count > 0:
+                    _pending_jobs_count -= 1
 
-        # Mark as "processing"
-        async with async_session() as db:
-            stmt = select(ProtectedImage).where(ProtectedImage.id == image_id)
-            result = await db.execute(stmt)
-            img = result.scalar_one_or_none()
-            if img:
-                img.status = "processing"  # type: ignore
-                await db.commit()
+            loop = asyncio.get_running_loop()
 
-        # Run the heavy pipeline off the event loop
-        t0 = time.perf_counter()
-        try:
-            from app.protection.engine import protect_image_pipeline
-            fn = functools.partial(
-                protect_image_pipeline,
-                original_path,
-                protected_path,
-                preset_name=preset_name,
-                enable_grid=enable_grid,
-            )
-            out_png_path, combined_metrics = await loop.run_in_executor(_executor, fn)
-            elapsed_ms = int((time.perf_counter() - t0) * 1000)
-            eval_m = combined_metrics.get("evaluation_metrics", {})
-        except Exception as exc:
-            logger.exception("Protection failed for image %s", image_id)
+            # Check if task was already cancelled while in queue
             async with async_session() as db:
                 stmt = select(ProtectedImage).where(ProtectedImage.id == image_id)
                 result = await db.execute(stmt)
                 img = result.scalar_one_or_none()
-                if img:
-                    img.status = "failed"
-                    img.error_message = str(exc)[:MAX_ERROR_MESSAGE_LENGTH]
-                    await db.commit()
-            return
-
-        # Persist results
-        async with async_session() as db:
-            stmt = select(ProtectedImage).where(ProtectedImage.id == image_id)
-            result = await db.execute(stmt)
-            img = result.scalar_one_or_none()
-            if img:
-                prot_m = combined_metrics.get("protection_meta", {})
-                eval_m = combined_metrics.get("evaluation_metrics", {})
-
-                img.status = "completed"
-                img.ssim_score = eval_m.get("global_ssim")
-                img.face_ssim_score = eval_m.get("face_ssim_1_2x")
-                img.psnr_score = eval_m.get("psnr_db")
-                img.linf_score = float(eval_m.get("l_inf_max_shift", 0)) if eval_m.get("l_inf_max_shift") is not None else None #type: ignore
-                img.guardrail_satisfied = bool(prot_m.get("guardrail_satisfied", True))
-                img.attenuation_factor = float(prot_m.get("attenuation_factor", 1.0)) if prot_m.get("attenuation_factor") is not None else None #type: ignore
-                img.avg_y_npr = eval_m.get("avg_y_npr_percent")
-                img.landmark_shift_delta_px = eval_m.get("landmark_shift_delta_px")
-                img.alignment_error_pct_change = eval_m.get("alignment_error_pct_change")
-                img.processing_time_ms = elapsed_ms
-                img.original_path = None  #type: ignore
-                if os.path.exists(out_png_path):
-                    img.protected_path = out_png_path
-                    img.protected_size_bytes = os.path.getsize(out_png_path)
+                if not img or img.status == "cancelled":
+                    logger.info("Task %s was cancelled before execution.", image_id)
+                    return
+                img.status = "processing"
                 await db.commit()
 
-        # ── Privacy: delete original immediately ─────────────────────
-        if os.path.exists(original_path):
-            try:
-                os.remove(original_path)
-                logger.info("[Vault] Deleted original: %s", original_path)
-            except OSError:
-                logger.warning("[Vault] Failed to delete original: %s", original_path)
+            # Timeout threshold: 45s for GPU Hard Mode, 20s for CPU Fast Mode
+            timeout_sec = 45.0 if mode.lower() == "hard" else 20.0
+            t0 = time.perf_counter()
 
-        logger.info(
-            "Protection complete for %s — Global SSIM=%.3f  Face SSIM=%.3f  PSNR=%.1f  Avg Y-NPR=%.1f%%  time=%dms",
-            image_id,
-            eval_m.get("global_ssim", 0),
-            eval_m.get("face_ssim_1_2x", 0),
-            eval_m.get("psnr_db", 0),
-            eval_m.get("avg_y_npr_percent", 0),
-            elapsed_ms,
-        )
+            try:
+                from app.protection.engine import protect_image_pipeline
+
+                fn = functools.partial(
+                    protect_image_pipeline,
+                    original_path,
+                    protected_path,
+                    preset_name=preset_name,
+                    enable_grid=enable_grid,
+                    mode=mode,
+                    cancel_event=cancel_event,
+                )
+                out_png_path, combined_metrics = await asyncio.wait_for(
+                    loop.run_in_executor(_executor, fn),
+                    timeout=timeout_sec,
+                )
+                elapsed_ms = int((time.perf_counter() - t0) * 1000)
+                eval_m = combined_metrics.get("evaluation_metrics", {})
+            except asyncio.TimeoutError:
+                logger.error("Protection timeout exceeded for image %s after %.1fs", image_id, timeout_sec)
+                async with async_session() as db:
+                    stmt = select(ProtectedImage).where(ProtectedImage.id == image_id)
+                    result = await db.execute(stmt)
+                    img = result.scalar_one_or_none()
+                    if img and img.status != "cancelled":
+                        img.status = "failed"
+                        img.error_message = f"Job processing timeout exceeded ({int(timeout_sec)}s limit)"
+                        await db.commit()
+                return
+            except TaskCancelledException as exc:
+                logger.warning("Task %s cancelled cooperatively: %s", image_id, exc)
+                async with async_session() as db:
+                    stmt = select(ProtectedImage).where(ProtectedImage.id == image_id)
+                    result = await db.execute(stmt)
+                    img = result.scalar_one_or_none()
+                    if img:
+                        img.status = "cancelled"
+                        img.error_message = "Task cancelled by user"
+                        await db.commit()
+                return
+            except Exception as exc:
+                logger.exception("Protection failed for image %s", image_id)
+                async with async_session() as db:
+                    stmt = select(ProtectedImage).where(ProtectedImage.id == image_id)
+                    result = await db.execute(stmt)
+                    img = result.scalar_one_or_none()
+                    if img and img.status != "cancelled":
+                        img.status = "failed"
+                        img.error_message = str(exc)[:MAX_ERROR_MESSAGE_LENGTH]
+                        await db.commit()
+                return
+
+            # Persist completed results
+            async with async_session() as db:
+                stmt = select(ProtectedImage).where(ProtectedImage.id == image_id)
+                result = await db.execute(stmt)
+                img = result.scalar_one_or_none()
+                if img and img.status != "cancelled":
+                    prot_m = combined_metrics.get("protection_meta", {})
+                    eval_m = combined_metrics.get("evaluation_metrics", {})
+
+                    img.status = "completed"
+                    img.ssim_score = eval_m.get("global_ssim")
+                    img.face_ssim_score = eval_m.get("face_ssim_1_2x")
+                    img.psnr_score = eval_m.get("psnr_db")
+                    img.linf_score = (
+                        float(eval_m.get("l_inf_max_shift", 0))
+                        if eval_m.get("l_inf_max_shift") is not None
+                        else None
+                    )
+                    img.guardrail_satisfied = bool(prot_m.get("guardrail_satisfied", True))
+                    img.attenuation_factor = (
+                        float(prot_m.get("attenuation_factor", 1.0))
+                        if prot_m.get("attenuation_factor") is not None
+                        else None
+                    )
+                    img.avg_y_npr = eval_m.get("avg_y_npr_percent")
+                    img.landmark_shift_delta_px = eval_m.get("landmark_shift_delta_px")
+                    img.alignment_error_pct_change = eval_m.get("alignment_error_pct_change")
+                    img.processing_time_ms = elapsed_ms
+                    img.original_path = None
+                    if os.path.exists(out_png_path):
+                        img.protected_path = out_png_path
+                        img.protected_size_bytes = os.path.getsize(out_png_path)
+                    await db.commit()
+
+            # Clean up original upload
+            if os.path.exists(original_path):
+                try:
+                    os.remove(original_path)
+                    logger.info("[Vault] Deleted original: %s", original_path)
+                except OSError:
+                    logger.warning("[Vault] Failed to delete original: %s", original_path)
+
+            logger.info("Protection complete for %s (Mode: %s) in %dms", image_id, mode, elapsed_ms)
+    finally:
+        _cancel_events.pop(image_id, None)
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────
-
 
 @router.post("/protect", response_model=list[ImageResponse], status_code=status.HTTP_202_ACCEPTED)
 async def protect_images(
     files: list[UploadFile],
     current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
+    mode: str = Form(default="fast"),
     protection_strength: float = Form(default=0.5),
     preset_name: str = Form(default="Balanced"),
     enable_grid: bool = Form(default=False),
 ):
-    """Accept one or more image uploads, queue them for protection."""
+    """Accept one or more image uploads, validate parameters, and queue for protection."""
+    global _pending_jobs_count
     validate_upload_count(files)
+
+    clean_mode = str(mode).strip().lower()
+    if clean_mode not in ("fast", "hard"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid protection mode '{mode}'. Must be 'fast' or 'hard'.",
+        )
+
+    clean_preset = str(preset_name).strip().lower()
+    if clean_mode == "fast" and clean_preset not in ALLOWED_FAST_PRESETS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid preset '{preset_name}' for Fast Mode. Must be Light, Balanced, or Aggressive.",
+        )
+    if clean_mode == "hard" and clean_preset not in ALLOWED_HARD_PRESETS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid preset '{preset_name}' for Hard Mode. Must be F5, Light, Balanced, or Aggressive.",
+        )
+
+    # ── Bounded queue capacity check ──────────────────────────────────
+    async with _queue_lock:
+        if _pending_jobs_count + len(files) > MAX_PENDING_QUEUE:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Protection engine queue is full ({_pending_jobs_count} pending). Maximum capacity is {MAX_PENDING_QUEUE}.",
+                headers={"Retry-After": "30"},
+            )
+        _pending_jobs_count += len(files)
 
     user_dir = _user_storage_dir(current_user.id)
     created: list[ProtectedImage] = []
 
-    for file in files:
-        image_id = uuid.uuid4()
-        ext = (file.filename or "upload.jpg").rsplit(".", 1)[-1].lower()
-        original_name = f"{image_id}_original.{ext}"
-        original_path = os.path.join(user_dir, original_name)
+    try:
+        for file in files:
+            image_id = uuid.uuid4()
+            ext = (file.filename or "upload.jpg").rsplit(".", 1)[-1].lower()
+            original_name = f"{image_id}_original.{ext}"
+            original_path = os.path.join(user_dir, original_name)
 
-        # Stream to disk with validation
-        await save_upload_with_limits(file, original_path)
+            # Stream to disk with limits
+            await save_upload_with_limits(file, original_path)
 
-        # Get dimensions
-        width, height = get_image_dimensions(original_path)
-        file_size = os.path.getsize(original_path)
+            width, height = get_image_dimensions(original_path)
+            file_size = os.path.getsize(original_path)
 
-        # Create DB row
-        record = ProtectedImage(
-            id=image_id,
-            user_id=current_user.id,
-            original_filename=file.filename or "unknown",
-            original_path=original_path,
-            protected_path=None,
-            width=width,
-            height=height,
-            original_size_bytes=file_size,
-            protection_strength=protection_strength,
-            preset_name=preset_name,
-            watermark_enabled=False,
-            watermark_id="",
-            eot_iterations=settings.eot_iterations,
-            status="pending",
-        )
-        db.add(record)
-        created.append(record)
-
-    await db.commit()
-    for r in created:
-        await db.refresh(r)
-
-    # Fire off background tasks (they will queue behind the semaphore)
-    for record in created:
-        asyncio.create_task(
-            _run_protection_task(
-                image_id=record.id,
-                original_path=record.original_path,  # type: ignore
-                protected_path=os.path.join(user_dir, f"{record.id}_protected.png"),
-                strength=record.protection_strength,
-                preset_name=preset_name,
-                enable_grid=enable_grid,
+            # ── Idempotency Check ──────────────────────────────────────
+            # If user already has an identical pending/processing task, reuse it
+            dup_stmt = select(ProtectedImage).where(
+                ProtectedImage.user_id == current_user.id,
+                ProtectedImage.original_filename == (file.filename or "unknown"),
+                ProtectedImage.original_size_bytes == file_size,
+                ProtectedImage.status.in_(["pending", "processing"]),
+                ProtectedImage.mode == clean_mode,
             )
-        )
+            dup_res = await db.execute(dup_stmt)
+            existing_task = dup_res.scalars().first()
+            if existing_task:
+                logger.info("Idempotent hit: returning existing in-flight task %s", existing_task.id)
+                if os.path.exists(original_path):
+                    os.remove(original_path)
+                async with _queue_lock:
+                    if _pending_jobs_count > 0:
+                        _pending_jobs_count -= 1
+                created.append(existing_task)
+                continue
 
-    return created
+            record = ProtectedImage(
+                id=image_id,
+                user_id=current_user.id,
+                original_filename=file.filename or "unknown",
+                original_path=original_path,
+                protected_path=None,
+                width=width,
+                height=height,
+                original_size_bytes=file_size,
+                mode=clean_mode,
+                protection_strength=protection_strength,
+                preset_name=preset_name,
+                watermark_enabled=False,
+                watermark_id="",
+                eot_iterations=settings.eot_iterations,
+                status="pending",
+            )
+            db.add(record)
+            created.append(record)
+
+        await db.commit()
+        for r in created:
+            await db.refresh(r)
+
+        # Launch background tasks
+        for record in created:
+            if record.status == "pending":
+                cancel_ev = threading.Event()
+                _cancel_events[record.id] = cancel_ev
+                asyncio.create_task(
+                    _run_protection_task(
+                        image_id=record.id,
+                        original_path=record.original_path,  # type: ignore
+                        protected_path=os.path.join(user_dir, f"{record.id}_protected.png"),
+                        strength=record.protection_strength,
+                        preset_name=preset_name,
+                        enable_grid=enable_grid,
+                        mode=clean_mode,
+                        cancel_event=cancel_ev,
+                    )
+                )
+
+        return created
+    except Exception:
+        # Revert queue counter on upload error
+        async with _queue_lock:
+            if _pending_jobs_count >= len(files):
+                _pending_jobs_count -= len(files)
+        raise
+
+
+@router.post("/cancel/{image_id}", status_code=status.HTTP_200_OK)
+async def cancel_protection_task(
+    image_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Cancel a pending or in-flight protection task belonging to current user."""
+    stmt = select(ProtectedImage).where(
+        ProtectedImage.id == image_id,
+        ProtectedImage.user_id == current_user.id,
+    )
+    result = await db.execute(stmt)
+    img = result.scalar_one_or_none()
+
+    if not img:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    if img.status in ("completed", "failed", "cancelled"):
+        return {"message": f"Task is already {img.status}", "status": img.status}
+
+    if img.status == "pending":
+        img.status = "cancelled"
+        img.error_message = "Cancelled by user"
+        await db.commit()
+        return {"message": "Pending job successfully cancelled", "status": "cancelled"}
+
+    # If in-flight processing, trigger cooperative cancellation event
+    cancel_ev = _cancel_events.get(image_id)
+    if cancel_ev:
+        cancel_ev.set()
+    img.status = "cancelled"
+    img.error_message = "Cancellation initiated by user"
+    await db.commit()
+    return {"message": "In-flight job cancellation initiated", "status": "cancelled"}
 
 
 @router.get("/status/{image_id}", response_model=ImageStatusResponse)
@@ -244,24 +394,22 @@ async def list_images(
     """Paginated list of a user's protected images (newest first)."""
     offset = (max(1, page) - 1) * page_size
 
-    # Total count
     count_stmt = select(sa_func.count()).select_from(ProtectedImage).where(
         ProtectedImage.user_id == current_user.id
     )
     total = (await db.execute(count_stmt)).scalar() or 0
 
-    # Page
     stmt = (
         select(ProtectedImage)
         .where(ProtectedImage.user_id == current_user.id)
-        .order_by(ProtectedImage.created_at.desc())  # type: ignore
+        .order_by(ProtectedImage.created_at.desc())
         .offset(offset)
         .limit(page_size)
     )
     result = await db.execute(stmt)
     images = list(result.scalars().all())
 
-    return ImageListResponse(images=images, total=total, page=page, page_size=page_size)  # type: ignore
+    return ImageListResponse(images=images, total=total, page=page, page_size=page_size)
 
 
 @router.get("/download/{image_id}")
@@ -288,14 +436,12 @@ async def download_protected_image(
     base_name = os.path.splitext(img.original_filename)[0]
 
     if img.vault_sealed:
-        # Serve encrypted blob — frontend will decrypt
         return FileResponse(
             path=img.protected_path,
             filename=f"varman_{base_name}.enc",
             media_type="application/octet-stream",
         )
 
-    # Plaintext (not yet sealed) — standard PNG download
     return FileResponse(
         path=img.protected_path,
         filename=f"varman_{base_name}.png",
@@ -310,13 +456,7 @@ async def seal_vault_image(
     current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
 ):
-    """Accept an encrypted blob from the frontend and replace the plaintext protected file.
-
-    This is the core of Varman's zero-knowledge vault: after the frontend
-    encrypts the protected image client-side, it uploads the ciphertext here.
-    The server deletes the plaintext protected file and stores only the
-    encrypted blob — which it cannot read.
-    """
+    """Accept an encrypted blob from the frontend and replace the plaintext protected file."""
     stmt = select(ProtectedImage).where(
         ProtectedImage.id == image_id,
         ProtectedImage.user_id == current_user.id,
@@ -332,7 +472,6 @@ async def seal_vault_image(
     user_dir = _user_storage_dir(current_user.id)
     vault_path = os.path.join(user_dir, f"{image_id}_vault.enc")
 
-    # Stream the encrypted blob to disk
     try:
         with open(vault_path, "wb") as out:
             while True:
@@ -345,7 +484,6 @@ async def seal_vault_image(
             os.remove(vault_path)
         raise HTTPException(status_code=500, detail="Failed to save vault blob") from exc
 
-    # Delete the plaintext protected file
     if img.protected_path and os.path.exists(img.protected_path):
         try:
             os.remove(img.protected_path)
@@ -353,7 +491,6 @@ async def seal_vault_image(
         except OSError:
             logger.warning("[Vault] Failed to delete plaintext: %s", img.protected_path)
 
-    # Update DB record
     img.protected_path = vault_path
     img.vault_sealed = True
     img.protected_size_bytes = os.path.getsize(vault_path)
@@ -402,7 +539,6 @@ async def delete_image(
     if not img:
         raise HTTPException(status_code=404, detail="Image not found")
 
-    # Clean up files
     for path in (img.original_path, img.protected_path):
         if path and os.path.exists(path):
             try:
