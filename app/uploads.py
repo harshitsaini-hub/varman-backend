@@ -84,10 +84,20 @@ def validate_upload_count(files: list[UploadFile]) -> None:
         )
 
 
+MAX_IMAGE_DIMENSION = 4096  # Max width or height in pixels
+MAX_IMAGE_PIXELS = 16_777_216  # Max 16.7 Megapixels total resolution
+
+
 def get_image_dimensions(path: str) -> tuple[int, int]:
-    """Return (width, height) of the image at *path*."""
+    """Return (width, height) of the image at *path*, enforcing maximum resolution limits."""
     with Image.open(path) as img:
-        return img.size  # (width, height)
+        w, h = img.size
+        if w > MAX_IMAGE_DIMENSION or h > MAX_IMAGE_DIMENSION or (w * h) > MAX_IMAGE_PIXELS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Image dimensions ({w}x{h}) exceed maximum allowed resolution ({MAX_IMAGE_DIMENSION}x{MAX_IMAGE_DIMENSION} pixels).",
+            )
+        return (w, h)
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────
