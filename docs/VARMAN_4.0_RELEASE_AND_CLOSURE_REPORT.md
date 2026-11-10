@@ -1,9 +1,8 @@
-# Varman 4.0 — Production Hard Mode Integration Audit & Release Candidate Report
+# Varman 4.0 — Production Release & Final Verification Report
 
 **Date:** November 10, 2026  
-**Verdict:** **RELEASE CANDIDATE 1 (RC1) APPROVED FOR BACKEND SPACE DEPLOYMENT**  
-**Audit Milestone:** Checkpoint 2 Passed (Dual-Mode Manual Verification Verified)  
-**Target Branches:** `release/v4.0.0` (`Varman-backend`, `Varman-frontend`), `main` @ `9afdbeb` (`Varman-HF-Deploy`)  
+**Verdict:** **RELEASED — PROJECT CLOSED (₹0 / $0.00 Configuration)**  
+**Release Version:** `4.0.0`  
 **Budget & Compliance:** Permanent ₹0 ($0.00) Cap Strictly Preserved (Rule 0 Compliant)  
 **Hardware Anonymity:** Strict Zero Hardware Naming Compliance Enforced Across UI and API  
 
@@ -186,37 +185,31 @@ The requested Phase 2/3 architectural, governance, and UI gating features have b
 | **Preset & Mode Validation (422)** | **VERIFIED** | Strictly validates presets in [`app/routes/images.py`](../app/routes/images.py). Returns HTTP 422 for unknown modes or unknown presets (`{"light", "balanced", "aggressive"}` for Fast Mode, `{"f5"}` for Hard Mode). |
 | **409 Consent Enforcement** | **VERIFIED** | Backend checks `torch.cuda.is_available()` on Hard Mode requests. Without explicit consent (`allow_cpu_fallback: bool = False`), returns `HTTP 409 Conflict`. With consent, transparently runs Fast Mode and records fallback metadata. |
 | **Full Protection Metadata** | **VERIFIED** | Persists and serializes `requested_mode`, `actual_mode`, `fallback_occurred`, `fallback_reason`, `eot_steps_executed`, `eps_budget`, `alpha_step`, `w_fn`, and `mask_scale` in DB and polling endpoints. |
-| **Disabled Hard Mode on CPU Server** | **VERIFIED** | [`Varman-frontend/src/pages/UploadPage.jsx`](../../Varman-frontend/src/pages/UploadPage.jsx) queries `/capabilities` on mount. Visibly disables Hard Mode card (`Server GPU Unavailable`), prevents selection, and triggers 409 consent modal upon conflict. |
+| **Disabled Hard Mode on CPU Server** | **VERIFIED** | [`UploadPage.jsx`](../../Varman-frontend/src/pages/UploadPage.jsx) queries `/capabilities` on mount. Visibly disables Hard Mode card (`Server GPU Unavailable`), prevents selection, and clicking it does nothing. |
 | **Result-Screen Biometric & Mode Labels** | **VERIFIED** | Displays mode-specific badge (Fast CPU, Hard Server GPU with parameter chips `25 steps | ε=8/255 | α=0.0045 | Scale=1.15 | w_fn=1.0`, or Fast CPU Fallback with reason), Global SSIM, and Face SSIM. |
 
 ---
 
 ## 8. Release Status & Verdict
 
-*   **Repository Git Status:**
-    *   `Varman-backend` @ `release/v4.0.0` (commit `951c953`, tag `v4.0.0-rc1`, clean working tree, unpushed).
-    *   `Varman-frontend` @ `release/v4.0.0` (commit `da7c47a`, tag `v4.0.0-rc1`, clean working tree, unpushed).
-    *   `Varman-HF-Deploy` @ `main` (commit `9afdbeb`, clean working tree, running CPU Basic).
-*   **Automated Test Suite:** 76 passed in 31.94s (100% pass rate across all test suites including `tests/test_capabilities_and_consent.py` and `tests/test_repo_hygiene.py`).
-*   **Manual End-to-End Verification:** **PASSED & VERIFIED** across both execution environments:
-    *   *Part A (CPU-Only):* Probe reports `gpu_available: false`, UI fails closed with disabled Hard Mode card, `mode="hard"` without consent returns `HTTP 409 Conflict`, consent allows fallback with amber UI banner, and raw `_original` upload files are immediately deleted.
-    *   *Part B (CUDA GPU):* Probe reports `gpu_available: true` and selects Hard Mode, real portrait processed through 25-step F5 dual-surrogate loop with metadata chips, VRAM returns near baseline, cooperative cancellation succeeds, and zero leftover original files remain.
-*   **Frontend Production Build:** Vite build passed in 441ms with zero errors or warnings.
-*   **Final Verdict:** **RELEASE CANDIDATE - AWAITING OWNER ACTION (NOW APPROVED: PROMOTE)**
+* **Release Verdict:** **RELEASED — PROJECT CLOSED (₹0 / $0.00 Configuration)**
+* **Release Mapping Matrix:**
+
+| Component | Target Environment | Branch | HEAD Commit | Annotated Release Tag | Live Deployment URL / State | Working Tree |
+| :--- | :--- | :---: | :---: | :---: | :--- | :---: |
+| **Varman Backend** | GitHub / Container Base | `main` | `6fc0948` | `v4.0.0` | `https://github.com/harshitsaini-hub/varman-backend.git` | Clean |
+| **Varman Frontend** | Vercel Edge CDN | `main` | `1f5f03a` | `v4.0.0` | `https://varman-frontend.vercel.app/` | Clean |
+| **HF Deploy Space** | Hugging Face Docker (`cpu-basic`) | `main` | `4637cda` | *(Release Commit)* | `https://shadowkagenou-varman.hf.space/` | Clean |
+
+* **Automated Test Suite:** 76 passed in 26.12s (100% pass rate on `main`).
+* **Manual End-to-End Verification:** Verified across CPU Space and local GPU.
+* **Frontend Production Build:** Vite build passed in 382ms with 0 errors.
+* **Live Deployment Parity:** Confirmed live Space `app/` is byte-identical to `v4.0.0` backend `app/`.
 
 ---
 
 ## 9. Staged Production Promotion Protocol
 
-The system is fully audited, verified, and sealed. Following owner authorization, deployment proceeds under a phased deployment gate:
-1. **Phase 1: Backend Deployment to Hugging Face Space (`Varman-HF-Deploy`) [APPROVED]:**
-   - Synchronize backend application code (`app/`) from `v4.0.0-rc1` into `Varman-HF-Deploy`.
-   - Ensure `Dockerfile` and `requirements.txt` are preserved untouched.
-   - Commit with no-reply email and push exclusively to the Space remote.
-   - Monitor build and startup logs; rollback to `9afdbeb` if health checks fail.
-   - Perform live end-to-end verification (`GET /`, `/api/capabilities`, auth, Fast job, 409 gating, CPU fallback with metadata).
-2. **Phase 2: Post-Verification GitHub Main & Frontend Release [HELD PENDING SPACE VERIFICATION]:**
-   - Only after live Space verification passes 100%:
-     - Merge `release/v4.0.0` into `main` in `Varman-backend` and tag `v4.0.0`.
-     - Push `Varman-frontend` to trigger Vercel deployment.
-     - Final project closure.
+Both Phase 1 (Backend Space Deployment) and Phase 2 (GitHub Main & Frontend Vercel Release) have been fully executed, verified, and promoted to production:
+1. **Phase 1 (Backend Hugging Face Space):** Shipped at commit `4637cda`. Health checks, capabilities probe (`gpu_available: false`), Fast jobs, 409 gating, and fallback metadata verified live.
+2. **Phase 2 (GitHub Main & Frontend Vercel Release):** Merged into `main`, tagged `v4.0.0`, pushed to GitHub and Vercel. Live stack verified end-to-end. Varman 4.0 is closed.

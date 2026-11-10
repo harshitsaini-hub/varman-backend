@@ -45,10 +45,11 @@ sequenceDiagram
 
 > [!WARNING]
 > **Crash-State Orphan Residuals & Startup Sweep Status:**  
-> If the backend process terminates abnormally (e.g., sudden `SIGKILL`, hardware power loss, or ungraceful container restart) while a protection task is actively in-flight before the `os.remove(original_path)` call executes, the `_original` uploaded portrait file **will remain on disk** in `storage/{user_id}/`.  
+> If the backend process terminates abnormally (e.g., sudden `SIGKILL`, hardware power loss, or ungraceful restart) while a protection task is actively in-flight before the `os.remove(original_path)` call executes, the `_original` uploaded portrait file behavior depends on the hosting topology:  
 > 
-> - **Current Recovery Behavior:** The FastAPI lifespan startup handler recovers database records from `pending` and `processing` states to `failed` (with message `"Interrupted by server restart"`). However, **it does not currently perform an automated filesystem sweep to prune orphan `*_original.*` files**.  
-> - **Proposed Minimal Fix (Deferred Post-Freeze):** In a subsequent minor release, the `lifespan` startup hook can be extended to iterate over the IDs of all recovered `failed` tasks and unlink any matching `*_original.*` files on disk. In accordance with the v4.0.0 code freeze, this cleanup is handled operationally via periodic directory sweeps rather than runtime code modifications.
+> - **Hugging Face Space (Ephemeral Storage):** Any orphan `_original` files vanish automatically upon container restart because container storage is strictly ephemeral.  
+> - **Local Host (Persistent Storage):** Orphan `_original` files remain on persistent disk and require a manual directory sweep (`storage/`) to prune unreferenced uploads. The FastAPI lifespan startup handler recovers database records from `pending` and `processing` to `failed`, but does not currently perform an automated filesystem sweep.  
+> - **Frontend Hard Mode Selection Guard:** When the backend reports `gpu_available: false`, the frontend visibly disables the Hard Mode card (`disabled={!serverGpuAvailable}`). The disabled Hard card does nothing when clicked, preventing unconsented submission.
 
 ---
 

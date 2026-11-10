@@ -72,8 +72,8 @@ The production engine was evaluated on the exact 150 genuine identity pairs from
 
 ## 4. Known Scientific & Practical Limitations
 
-1. **Human Visual Perception ("Slight to Clear"):**  
-   Under human visual inspection at 100% zoom on facial features, Preset F5 perturbation is rated as **"slight to clear"** texture artifacting around high-frequency facial landmark regions (eyelids, nasal bridge, lip contours). While whole-image SSIM remains high ($>0.97$), users sensitive to micro-texture shifts will observe slight grain on close inspection.
+1. **Human Visual Perception (5 'Slight' / 5 'Clear'):**  
+   In the 10-sample human qualitative review at 100% zoom, Preset F5 perturbation was evaluated as 5 'slight' and 5 'clear'. While whole-image SSIM remains high ($>0.97$), users sensitive to micro-texture shifts will observe slight grain on close inspection.
 2. **Statistical Sample Size & Image Resolution Bounds:**  
    The empirical benchmark evaluated 150 genuine pairs ($N = 150$) using standard LFW $250\times 250\text{ px}$ crops. While sufficient to demonstrate parity with research frontier F5, calibrated 0.1% FAR verification requires $\ge 3{,}000$ non-matching impostor pairs to establish tight statistical confidence intervals.
 3. **Production Benchmark Quality Scope (Q50 Only):**  
@@ -83,7 +83,7 @@ The production engine was evaluated on the exact 150 genuine identity pairs from
 5. **Absence of Commercial API, Detector, & Adaptive Attacker Tests:**  
    Surrogate optimization targets convolutional architectures (ArcFace ResNet-50 and FaceNet Inception). Evasion rates transfer to held-out CNNs (MobileFaceNet, SFace), but **no tests were conducted against commercial cloud APIs** (AWS Rekognition, Azure Face, Face++), external face detectors (MTCNN, RetinaFace), or adaptive white-box attackers who are aware of the perturbation pipeline.
 6. **Hardware Gating & Local GPU Requirement:**  
-   Hard Mode requires a dedicated local NVIDIA CUDA GPU (consuming ~1.25 GB VRAM peak for 25 PGD steps). Production server deployment on the free Hugging Face Space operates strictly in CPU-only mode; Hard Mode requests return `HTTP 409 Conflict` unless explicit consent for Fast Mode fallback is provided.
+   Hard Mode requires a dedicated local NVIDIA CUDA GPU (measured at 552 MB allocated / 666 MB reserved for images up to 2000×2000; not measured at 4096×4096). Production server deployment on the free Hugging Face Space operates strictly in CPU-only mode; Hard Mode requests return `HTTP 409 Conflict` unless explicit consent for Fast Mode fallback is provided.
 7. **Free Space Deployment Constraints:**  
    The Hugging Face Space free tier (`cpu-basic`) experiences slower cold start times (~10s for initial module imports). Furthermore, free-tier container storage is **ephemeral**: process restarts wipe local SQLite database records and stored uploads unless persistent storage is provisioned.
 8. **Extreme Pose & Heavy Occlusion:**  
