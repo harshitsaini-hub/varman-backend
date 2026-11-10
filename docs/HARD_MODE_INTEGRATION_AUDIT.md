@@ -81,7 +81,7 @@ Three test suites in `Varman-backend/tests/` relate directly to Hard/Strong Mode
 | `tests/test_pgd_convergence.py` | `test_deterministic_execution_under_fixed_seed`<br>`test_gradient_propagation_through_diffjpeg`<br>`test_perturbation_bounds_and_luminance_projection`<br>`test_pgd_optimizer_direction` | GPU EOT-PGD convergence on CUDA | **PASSED (Exit 0)** |
 
 ### 2.2 Live Local Hardware Verification
-Executed live on local hardware (NVIDIA GeForce RTX 2050 Mobile, CUDA 12.x, Python 3.11):
+Executed live on local hardware (Local NVIDIA GPU, CUDA 12.x, Python 3.11):
 1. **DiffJPEG Agreement with Real libjpeg:** `test_diff_jpeg_vs_pillow_agreement` passed across $Q \in \{50, 75, 95\}$ with $\text{SSIM} \ge 0.990$ and $\text{PSNR} \ge 40.0\text{ dB}$.
 2. **Finite Non-Zero Gradients:** Gradients flowed through DiffJPEG back to input pixels without NaNs or Infs ($\|\nabla_\delta\| > 0$).
 3. **Pure Luminance Constraint:** Verified $\delta_R = \delta_G = \delta_B$ with maximum cross-channel difference $< 10^{-7}$ and strict $\ell_\infty \le 8/255$.
@@ -188,7 +188,7 @@ If a client attempts to bypass the frontend and manually sends `preset_name="F5"
 
 | Dimension | Local Research Environment | Production Hugging Face Space (`ShadowKagenou/Varman`) |
 |---|---|---|
-| **Hardware** | ASUS TUF F17, NVIDIA RTX 2050 Mobile (4 GB VRAM) | Free CPU Tier (2 vCPU, 16 GB RAM) |
+| **Hardware** | Local NVIDIA GPU (4 GB VRAM) | Free CPU Tier (2 vCPU, 16 GB RAM) |
 | **CUDA Availability** | `torch.cuda.is_available() == True` | `torch.cuda.is_available() == False` |
 | **PyTorch Flavor** | CUDA 12.x wheels with cuDNN | CPU-only wheels (`--extra-index-url .../cpu`) |
 | **ArcFace Weights** | Present at `~/.cache/varman/arcface_r50_backbone.pth` (166.59 MB) | **MISSING** (Not copied into container image) |
