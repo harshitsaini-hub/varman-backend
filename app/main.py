@@ -41,16 +41,40 @@ async def lifespan(app: FastAPI):
 
     # ── Schema migration & orphan cleanup ──────────────────────────────
     try:
+        from app.protection.gpu_probe import probe_gpu_available
+        gpu_ok = probe_gpu_available(force_refresh=True)
+        logger.info("[STARTUP] GPU Acceleration Probe Status: %s", gpu_ok)
+    except Exception as e:
+        logger.warning("[STARTUP] GPU probe notice: %s", e)
+
+    try:
         async with async_session() as db:
-            # 1. SQLite schema migration check for 'mode'
+            # 1. SQLite schema migration check for Phase 2/3 metadata columns
             try:
                 res = await db.execute(text("PRAGMA table_info(protected_images)"))
                 cols = [row[1] for row in res.fetchall()]
-                if cols and "mode" not in cols:
-                    logger.info("[STARTUP] Adding missing 'mode' column to protected_images table...")
-                    await db.execute(text("ALTER TABLE protected_images ADD COLUMN mode VARCHAR(20) DEFAULT 'fast' NOT NULL"))
-                    await db.commit()
-                    logger.info("[STARTUP] 'mode' column successfully added.")
+                if cols:
+                    col_defs = [
+                        ("mode", "VARCHAR(20) DEFAULT 'fast' NOT NULL"),
+                        ("requested_mode", "VARCHAR(20) DEFAULT 'fast' NOT NULL"),
+                        ("actual_mode", "VARCHAR(20) DEFAULT 'fast' NOT NULL"),
+                        ("fallback_occurred", "BOOLEAN DEFAULT 0 NOT NULL"),
+                        ("fallback_reason", "TEXT"),
+                        ("fallback_user_accepted", "BOOLEAN DEFAULT 0 NOT NULL"),
+                        ("engine_version", "VARCHAR(32) DEFAULT '4.0.0' NOT NULL"),
+                        ("processing_duration", "FLOAT"),
+                        ("eot_steps_executed", "INTEGER"),
+                        ("eps_budget", "FLOAT"),
+                        ("alpha_step", "FLOAT"),
+                        ("w_fn", "FLOAT"),
+                        ("mask_scale", "FLOAT"),
+                    ]
+                    for col_name, col_sql in col_defs:
+                        if col_name not in cols:
+                            logger.info("[STARTUP] Adding missing '%s' column to protected_images table...", col_name)
+                            await db.execute(text(f"ALTER TABLE protected_images ADD COLUMN {col_name} {col_sql}"))
+                            await db.commit()
+                            logger.info("[STARTUP] '%s' column successfully added.", col_name)
             except Exception as e:
                 logger.warning("[STARTUP] Schema migration check notice: %s", e)
 
@@ -158,6 +182,29 @@ def create_app() -> FastAPI:
     @app.get("/health", tags=["System"])
     async def health_check():
         return {"status": "ok", "service": "varman"}
+
+    # ── Capabilities endpoint ──────────────────────────────────────────
+    @app.get("/api/capabilities", tags=["System"])
+    @app.get("/capabilities", tags=["System"])
+    async def get_capabilities():
+        from app.protection.gpu_probe import get_cached_gpu_available
+        gpu_available = get_cached_gpu_available()
+        modes_supported = ["fast", "hard"] if gpu_available else ["fast"]
+        presets = {
+            "fast": ["Light", "Balanced", "Aggressive"],
+            "hard": ["F5"] if gpu_available else [],
+        }
+        return {
+            "service": "Varman Engine",
+            "version": "4.0.0",
+            "gpu_available": gpu_available,
+            "modes_supported": modes_supported,
+            "default_mode": "hard" if gpu_available else "fast",
+            "presets": presets,
+            "max_queue_depth": 5,
+            "concurrency_limit": 1,
+            "requires_consent_for_cpu_fallback": True,
+        }
 
     return app
 

@@ -49,13 +49,24 @@ class ProtectedImage(Base):
     protected_size_bytes: Mapped[int] = mapped_column(Integer, nullable=True)
 
     # ── Protection parameters ──────────────────────────────────────────
-    mode: Mapped[str] = mapped_column(String(20), nullable=False, default="fast")  # fast | hard
+    mode: Mapped[str] = mapped_column(String(20), nullable=False, default="fast")  # fast | hard (synced with actual_mode)
+    requested_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="fast")
+    actual_mode: Mapped[str] = mapped_column(String(20), nullable=False, default="fast")
+    fallback_occurred: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    fallback_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    fallback_user_accepted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    engine_version: Mapped[str] = mapped_column(String(32), nullable=False, default="4.0.0")
     protection_strength: Mapped[float] = mapped_column(
         Float, nullable=False, default=0.5
     )
     preset_name: Mapped[str] = mapped_column(String(20), nullable=False, default="Balanced")
     epsilon_used: Mapped[float] = mapped_column(Float, nullable=True)  # Legacy — kept for DB compat
     eot_iterations: Mapped[int] = mapped_column(Integer, nullable=False, default=50)
+    eot_steps_executed: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    eps_budget: Mapped[float | None] = mapped_column(Float, nullable=True)
+    alpha_step: Mapped[float | None] = mapped_column(Float, nullable=True)
+    w_fn: Mapped[float | None] = mapped_column(Float, nullable=True)
+    mask_scale: Mapped[float | None] = mapped_column(Float, nullable=True)
     watermark_id: Mapped[str] = mapped_column(String(36), nullable=False, default="")
     watermark_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     vault_sealed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -77,6 +88,7 @@ class ProtectedImage(Base):
     )  # pending | processing | completed | failed | cancelled
     error_message: Mapped[str] = mapped_column(Text, nullable=True)
     processing_time_ms: Mapped[int] = mapped_column(Integer, nullable=True)
+    processing_duration: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # ── Timestamps ─────────────────────────────────────────────────────
     created_at: Mapped[str] = mapped_column(

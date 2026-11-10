@@ -216,11 +216,13 @@ class PasteAwareProtectionEngine:
 
         sim_af = torch.tensor(1.0)
         sim_fn = torch.tensor(1.0)
+        steps_executed = 0
 
         for t in range(steps):
             if cancel_event is not None and cancel_event.is_set():
                 logger.warning(f"[PasteAwareProtectionEngine] Cancel event detected at step {t}/{steps}.")
                 raise TaskCancelledException(f"Task cancelled cooperatively at step {t}")
+            steps_executed = t + 1
 
             q = float(q_sequence[t]) if (q_sequence is not None and t < len(q_sequence)) else float(torch.randint(50, 96, (1,)).item())
 
@@ -284,9 +286,10 @@ class PasteAwareProtectionEngine:
             prot_crop_bgr = cv2.cvtColor(prot_crop_rgb, cv2.COLOR_RGB2BGR)
 
         stats = {
-            "steps": steps,
-            "mask_scale": mask_scale,
+            "steps": int(steps_executed),
+            "mask_scale": float(mask_scale),
             "eps": float(eps),
+            "alpha": float(alpha),
             "w_fn": float(w_fn),
             "final_sim_af": float(sim_af.item()),
             "final_sim_fn": float(sim_fn.item()),
@@ -382,6 +385,11 @@ class PasteAwareProtectionEngine:
             "faces_processed": len(face_details),
             "mode": "hard",
             "preset": "F5",
+            "eot_steps_executed": face_details[0]["steps"] if face_details else 0,
+            "eps_budget": face_details[0]["eps"] if face_details else float(eps),
+            "alpha_step": face_details[0]["alpha"] if face_details else float(eps / 7.0),
+            "w_fn": face_details[0]["w_fn"] if face_details else float(w_fn),
+            "mask_scale": face_details[0]["mask_scale"] if face_details else float(mask_scale),
             "face_details": face_details,
         }
         return protected_img, meta

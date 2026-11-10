@@ -103,6 +103,8 @@ def protect_image_pipeline(
         prot_meta["faces"] = faces
         prot_meta["guardrail_satisfied"] = True
         prot_meta["attenuation_factor"] = 1.0
+        # Dynamic parameters used by the engine (eot_steps_executed, eps_budget,
+        # alpha_step, w_fn, mask_scale) are directly populated in prot_meta by the engine.
     else:
         # ── Fast Mode (CPU YuNet + DCT) ─────────────────────────────────
         preset_clean = preset_str.capitalize()
@@ -111,6 +113,11 @@ def protect_image_pipeline(
             preset_name=preset_clean,
             enable_grid=enable_grid,
         )
+        prot_meta["eot_steps_executed"] = None
+        prot_meta["eps_budget"] = None
+        prot_meta["alpha_step"] = None
+        prot_meta["w_fn"] = None
+        prot_meta["mask_scale"] = None
 
     # 2. Save protected image as lossless PNG
     png_path = os.path.splitext(protected_path)[0] + ".png"

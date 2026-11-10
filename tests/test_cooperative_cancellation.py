@@ -21,7 +21,7 @@ from app.models.user import User
 @pytest.fixture
 async def user2(db: AsyncSession) -> dict:
     u2 = User(
-        email="second_user@varman.test",
+        email="second_user@example.com",
         hashed_password=get_password_hash("password123"),
         display_name="User Two",
         vault_salt="b" * 64,

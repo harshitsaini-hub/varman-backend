@@ -48,7 +48,7 @@ _pending_jobs_count = 0
 _cancel_events: Dict[uuid.UUID, threading.Event] = {}
 
 ALLOWED_FAST_PRESETS = {"light", "balanced", "aggressive"}
-ALLOWED_HARD_PRESETS = {"f5", "balanced", "aggressive", "light"}
+ALLOWED_HARD_PRESETS = {"f5"}
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -167,18 +167,25 @@ async def _run_protection_task(
                         float(eval_m.get("l_inf_max_shift", 0))
                         if eval_m.get("l_inf_max_shift") is not None
                         else None
-                    )
+                    ) # pyright: ignore[reportAttributeAccessIssue]
                     img.guardrail_satisfied = bool(prot_m.get("guardrail_satisfied", True))
                     img.attenuation_factor = (
                         float(prot_m.get("attenuation_factor", 1.0))
                         if prot_m.get("attenuation_factor") is not None
                         else None
-                    )
+                    ) # pyright: ignore[reportAttributeAccessIssue]
                     img.avg_y_npr = eval_m.get("avg_y_npr_percent")
                     img.landmark_shift_delta_px = eval_m.get("landmark_shift_delta_px")
                     img.alignment_error_pct_change = eval_m.get("alignment_error_pct_change")
+                    img.eot_steps_executed = prot_m.get("eot_steps_executed")
+                    img.eps_budget = prot_m.get("eps_budget")
+                    img.alpha_step = prot_m.get("alpha_step")
+                    img.w_fn = prot_m.get("w_fn")
+                    img.mask_scale = prot_m.get("mask_scale")
                     img.processing_time_ms = elapsed_ms
-                    img.original_path = None
+                    img.processing_duration = round(elapsed_ms / 1000.0, 3)
+                    img.engine_version = "4.0.0"
+                    img.original_path = None # type: ignore
                     if os.path.exists(out_png_path):
                         img.protected_path = out_png_path
                         img.protected_size_bytes = os.path.getsize(out_png_path)
@@ -208,6 +215,7 @@ async def protect_images(
     protection_strength: float = Form(default=0.5),
     preset_name: str = Form(default="Balanced"),
     enable_grid: bool = Form(default=False),
+    allow_cpu_fallback: bool = Form(default=False),
 ):
     """Accept one or more image uploads, validate parameters, and queue for protection."""
     global _pending_jobs_count
@@ -229,8 +237,30 @@ async def protect_images(
     if clean_mode == "hard" and clean_preset not in ALLOWED_HARD_PRESETS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid preset '{preset_name}' for Hard Mode. Must be F5, Light, Balanced, or Aggressive.",
+            detail=f"Invalid preset '{preset_name}' for Hard Mode. Must be F5.",
         )
+
+    # ── Server-enforced 409 consent for CPU fallback ──────────────────
+    requested_mode = clean_mode
+    actual_mode = clean_mode
+    fallback_occurred = False
+    fallback_reason = None
+    fallback_user_accepted = False
+
+    if clean_mode == "hard":
+        from app.protection.gpu_probe import get_cached_gpu_available
+        if not get_cached_gpu_available():
+            if not allow_cpu_fallback:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Hard Mode requires a CUDA GPU. Server is CPU-only. Explicit consent (allow_cpu_fallback=true) required to proceed with Fast Mode (CPU).",
+                )
+            actual_mode = "fast"
+            clean_mode = "fast"
+            fallback_occurred = True
+            fallback_user_accepted = True
+            fallback_reason = "Server is CPU-only; user consented to Fast Mode (CPU) fallback."
+            preset_name = "Balanced"
 
     # ── Bounded queue capacity check ──────────────────────────────────
     async with _queue_lock:
@@ -265,7 +295,7 @@ async def protect_images(
                 ProtectedImage.original_filename == (file.filename or "unknown"),
                 ProtectedImage.original_size_bytes == file_size,
                 ProtectedImage.status.in_(["pending", "processing"]),
-                ProtectedImage.mode == clean_mode,
+                ProtectedImage.mode == actual_mode,
             )
             dup_res = await db.execute(dup_stmt)
             existing_task = dup_res.scalars().first()
@@ -288,7 +318,13 @@ async def protect_images(
                 width=width,
                 height=height,
                 original_size_bytes=file_size,
-                mode=clean_mode,
+                mode=actual_mode,
+                requested_mode=requested_mode,
+                actual_mode=actual_mode,
+                fallback_occurred=fallback_occurred,
+                fallback_reason=fallback_reason,
+                fallback_user_accepted=fallback_user_accepted,
+                engine_version="4.0.0",
                 protection_strength=protection_strength,
                 preset_name=preset_name,
                 watermark_enabled=False,
@@ -314,9 +350,9 @@ async def protect_images(
                         original_path=record.original_path,  # type: ignore
                         protected_path=os.path.join(user_dir, f"{record.id}_protected.png"),
                         strength=record.protection_strength,
-                        preset_name=preset_name,
+                        preset_name=record.preset_name,
                         enable_grid=enable_grid,
-                        mode=clean_mode,
+                        mode=record.actual_mode,
                         cancel_event=cancel_ev,
                     )
                 )
@@ -408,8 +444,14 @@ async def list_images(
     )
     result = await db.execute(stmt)
     images = list(result.scalars().all())
+    image_responses = [ImageResponse.model_validate(image) for image in images]
 
-    return ImageListResponse(images=images, total=total, page=page, page_size=page_size)
+    return ImageListResponse(
+        images=image_responses,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.get("/download/{image_id}")
